@@ -71,10 +71,34 @@ export async function getDashboardStats() {
   const routeCount = await pool.query(`SELECT COUNT(*) as count FROM routes WHERE status = 'active'`)
   const scheduleCount = await pool.query(`SELECT COUNT(*) as count FROM schedules WHERE status = 'active'`)
 
+
+
   return {
     buses: busCount.rows[0].count,
     drivers: driverCount.rows[0].count,
     routes: routeCount.rows[0].count,
     schedules: scheduleCount.rows[0].count,
+  }
+}
+
+// ... your existing exports ...
+
+// Demo mode flag (based on env)
+export function isDemoMode() {
+  return process.env.DEMO_MODE === "true"
+}
+
+// Check if the database is configured
+export function isDatabaseConfigured() {
+  return !!process.env.DATABASE_URL
+}
+
+// Provide a SQL wrapper that mimics postgres.js style
+export function getSql() {
+  return {
+    query: (strings: TemplateStringsArray, ...values: any[]) => {
+      const text = String.raw(strings, ...values)
+      return pool.query(text)
+    },
   }
 }
