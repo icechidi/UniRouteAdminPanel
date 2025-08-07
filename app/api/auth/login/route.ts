@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSql, isDatabaseConfigured } from "@/lib/db"
 import { verifyPassword, createSession } from "@/lib/auth"
-import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,52 +9,45 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = await request.json()
+    const sql = getSql()
 
-    if (!email || !password) {
-      return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
-    }
+    // Find user by email
+    const users = await sql`
+      SELECT u.user_id, u.first_name, u.last_name, u.username, u.email, u.password_hash, r.name as role_name
+      FROM users u
+      JOIN roles r ON u.role_id = r.role_id
+      WHERE u.email = ${email}
+    `
 
-    const db = getSql()
-
-    const result = await db.query(
-      `SELECT id, name, email, role, password_hash FROM users WHERE email = $1 LIMIT 1`,
-      [email]
-    )
-
-    if (result.rows.length === 0) {
+    if (users.length === 0) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
 
-    const user = result.rows[0]
+    const user = users[0]
+
     let isValidPassword = false
 
     if (user.password_hash) {
       isValidPassword = await verifyPassword(password, user.password_hash)
     } else {
-      // For demo fallback
+      // For demo purposes, allow "password" as the password if no hash exists
       isValidPassword = password === "password"
-
-      if (isValidPassword) {
-        const hashedPassword = await bcrypt.hash(password, 10)
-        await db.query(
-          `UPDATE users SET password_hash = $1 WHERE id = $2`,
-          [hashedPassword, user.id]
-        )
-      }
     }
 
     if (!isValidPassword) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
 
-    await createSession(user.id)
+    // Create session
+    await createSession(user.user_id)
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        name: user.name,
+        user_id: user.user_id,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
-        role: user.role,
+        role_name: user.role_name,
       },
     })
   } catch (error) {
