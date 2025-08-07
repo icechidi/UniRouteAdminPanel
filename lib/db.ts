@@ -1,12 +1,18 @@
+// lib/db.ts
 import { Pool } from 'pg'
+
+// Ensure this file is only used in Node.js runtime
+export const runtime = "nodejs"
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 })
 
 export default pool
 
-// Database helper functions
+// --------- Helper Queries ---------
+
 export async function getBuses() {
   const result = await pool.query(`
     SELECT b.*, d.name as driver_name 
@@ -18,16 +24,13 @@ export async function getBuses() {
 }
 
 export async function getDrivers() {
-  const result = await pool.query(`
-    SELECT * FROM drivers ORDER BY created_at DESC
-  `)
+  const result = await pool.query(`SELECT * FROM drivers ORDER BY created_at DESC`)
   return result.rows
 }
 
 export async function getRoutes() {
   const result = await pool.query(`
-    SELECT r.*, 
-           COUNT(rs.id) as stops_count
+    SELECT r.*, COUNT(rs.id) as stops_count
     FROM routes r 
     LEFT JOIN route_stops rs ON r.id = rs.route_id 
     GROUP BY r.id 
@@ -52,53 +55,41 @@ export async function getSchedules() {
 }
 
 export async function getUsers() {
-  const result = await pool.query(`
-    SELECT * FROM users ORDER BY created_at DESC
-  `)
+  const result = await pool.query(`SELECT * FROM users ORDER BY created_at DESC`)
   return result.rows
 }
 
 export async function getSettings() {
-  const result = await pool.query(`
-    SELECT * FROM settings ORDER BY key
-  `)
+  const result = await pool.query(`SELECT * FROM settings ORDER BY key`)
   return result.rows
 }
 
 export async function getDashboardStats() {
-  const busCount = await pool.query(`SELECT COUNT(*) as count FROM buses WHERE status = 'active'`)
-  const driverCount = await pool.query(`SELECT COUNT(*) as count FROM drivers WHERE status = 'active'`)
-  const routeCount = await pool.query(`SELECT COUNT(*) as count FROM routes WHERE status = 'active'`)
-  const scheduleCount = await pool.query(`SELECT COUNT(*) as count FROM schedules WHERE status = 'active'`)
-
-
+  const [buses, drivers, routes, schedules] = await Promise.all([
+    pool.query(`SELECT COUNT(*) as count FROM buses WHERE status = 'active'`),
+    pool.query(`SELECT COUNT(*) as count FROM drivers WHERE status = 'active'`),
+    pool.query(`SELECT COUNT(*) as count FROM routes WHERE status = 'active'`),
+    pool.query(`SELECT COUNT(*) as count FROM schedules WHERE status = 'active'`),
+  ])
 
   return {
-    buses: busCount.rows[0].count,
-    drivers: driverCount.rows[0].count,
-    routes: routeCount.rows[0].count,
-    schedules: scheduleCount.rows[0].count,
+    buses: buses.rows[0].count,
+    drivers: drivers.rows[0].count,
+    routes: routes.rows[0].count,
+    schedules: schedules.rows[0].count,
   }
 }
 
-// ... your existing exports ...
+// --------- Auth Helpers ---------
 
-// Demo mode flag (based on env)
-export function isDemoMode() {
-  return process.env.DEMO_MODE === "true"
+export function getSql() {
+  return pool
 }
 
-// Check if the database is configured
-export function isDatabaseConfigured() {
+export function isDatabaseConfigured(): boolean {
   return !!process.env.DATABASE_URL
 }
 
-// Provide a SQL wrapper that mimics postgres.js style
-export function getSql() {
-  return {
-    query: (strings: TemplateStringsArray, ...values: any[]) => {
-      const text = String.raw(strings, ...values)
-      return pool.query(text)
-    },
-  }
+export function isDemoMode(): boolean {
+  return process.env.DEMO_MODE === "true"
 }
