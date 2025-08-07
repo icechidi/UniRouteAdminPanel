@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getSql, isDatabaseConfigured } from "@/lib/db"
 import { verifyPassword, createSession } from "@/lib/auth"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,40 +10,37 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = await request.json()
-    const sql = getSql()
 
-    // Find user by email
-    const users = await sql`
-      SELECT id, name, email, role, password_hash
-      FROM users
-      WHERE email = ${email}
-    `
+    if (!email || !password) {
+      return NextResponse.json({ message: "Email and password are required" }, { status: 400 })
+    }
 
-    if (users.length === 0) {
+    const db = getSql()
+
+    const result = await db.query(
+      `SELECT id, name, email, role, password_hash FROM users WHERE email = $1 LIMIT 1`,
+      [email]
+    )
+
+    if (result.rows.length === 0) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
 
-    const user = users[0]
-
-    // Check if password_hash exists, if not, use a simple comparison for demo
+    const user = result.rows[0]
     let isValidPassword = false
 
     if (user.password_hash) {
-      // Use bcrypt verification if hash exists
       isValidPassword = await verifyPassword(password, user.password_hash)
     } else {
-      // For demo purposes, allow "password" as the password if no hash exists
+      // For demo fallback
       isValidPassword = password === "password"
 
-      // Optionally, hash and store the password for future use
       if (isValidPassword) {
-        const bcrypt = require("bcryptjs")
         const hashedPassword = await bcrypt.hash(password, 10)
-        await sql`
-          UPDATE users 
-          SET password_hash = ${hashedPassword} 
-          WHERE id = ${user.id}
-        `
+        await db.query(
+          `UPDATE users SET password_hash = $1 WHERE id = $2`,
+          [hashedPassword, user.id]
+        )
       }
     }
 
@@ -50,7 +48,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
 
-    // Create session
     await createSession(user.id)
 
     return NextResponse.json({
