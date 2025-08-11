@@ -1,35 +1,36 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import Link from "next/link"
 
 export default function NewRoutePage() {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [stops, setStops] = useState([{ name: "", order: 1 }])
+  const [stops, setStops] = useState([
+    { stop_name: "", longitude: "", latitude: "", arrival_time: "" },
+  ])
 
   const addStop = () => {
-    setStops([...stops, { name: "", order: stops.length + 1 }])
+    setStops([...stops, { stop_name: "", longitude: "", latitude: "", arrival_time: "" }])
   }
 
   const removeStop = (index: number) => {
     setStops(stops.filter((_, i) => i !== index))
   }
 
-  const updateStop = (index: number, name: string) => {
+  const updateStop = (index: number, field: string, value: string) => {
     const newStops = [...stops]
-    newStops[index].name = name
+    // @ts-ignore
+    newStops[index][field] = value
     setStops(newStops)
   }
 
@@ -39,13 +40,9 @@ export default function NewRoutePage() {
 
     const formData = new FormData(event.currentTarget)
     const data = {
-      title: formData.get("title") as string,
-      from_location: formData.get("from_location") as string,
-      to_location: formData.get("to_location") as string,
-      distance_km: Number.parseFloat(formData.get("distance_km") as string),
-      estimated_duration: Number.parseInt(formData.get("estimated_duration") as string),
-      status: formData.get("status") as string,
-      stops: stops.filter((stop) => stop.name.trim() !== ""),
+      route_name: formData.get("route_name") as string,
+      is_active: formData.get("is_active") === "on",
+      stops: stops.filter((stop) => stop.stop_name.trim() !== ""),
     }
 
     try {
@@ -77,69 +74,106 @@ export default function NewRoutePage() {
     }
   }
 
+  // Scroll helpers
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const scrollToTop = () => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
+    }
+  }
+
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/routes">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Add New Route</h2>
-          <p className="text-muted-foreground">Create a new bus route</p>
+    <div className="relative h-[90vh] p-6">
+      {/* Scrollable content */}
+      <div ref={scrollRef} className="overflow-y-auto h-full space-y-6 pr-2">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/routes">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Add New Route</h2>
+            <p className="text-muted-foreground">Create a new bus route</p>
+          </div>
         </div>
-      </div>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Route Information</CardTitle>
-          <CardDescription>Enter the details for the new route.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle>Route Information</CardTitle>
+            <CardDescription>Enter the details for the new route.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Route Title</Label>
-              <Input id="title" name="title" placeholder="Campus to Downtown" required />
+              <Label htmlFor="route_name">Route Name</Label>
+              <Input id="route_name" name="route_name" placeholder="Campus to Downtown" required />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="from_location">From</Label>
-                <Input id="from_location" name="from_location" placeholder="University Campus" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="to_location">To</Label>
-                <Input id="to_location" name="to_location" placeholder="Downtown Station" required />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="distance_km">Distance (km)</Label>
-                <Input id="distance_km" name="distance_km" type="number" step="0.1" placeholder="15.5" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="estimated_duration">Duration (minutes)</Label>
-                <Input id="estimated_duration" name="estimated_duration" type="number" placeholder="45" required />
-              </div>
+            <div className="flex items-center space-x-2">
+              <Switch id="is_active" name="is_active" defaultChecked />
+              <Label htmlFor="is_active">Active Route</Label>
             </div>
 
             <div className="space-y-2">
               <Label>Route Stops</Label>
               {stops.map((stop, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    placeholder={`Stop ${index + 1}`}
-                    value={stop.name}
-                    onChange={(e) => updateStop(index, e.target.value)}
-                  />
-                  {stops.length > 1 && (
-                    <Button type="button" variant="outline" size="sm" onClick={() => removeStop(index)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                <div key={index} className="flex flex-col gap-2 border p-3 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Stop {index + 1}</h4>
+                    {stops.length > 1 && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => removeStop(index)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`stop_name-${index}`}>Stop Name</Label>
+                    <Input
+                      id={`stop_name-${index}`}
+                      placeholder={`Stop ${index + 1} Name`}
+                      value={stop.stop_name}
+                      onChange={(e) => updateStop(index, "stop_name", e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`longitude-${index}`}>Longitude</Label>
+                      <Input
+                        id={`longitude-${index}`}
+                        type="number"
+                        step="0.0000001"
+                        placeholder="-77.0369"
+                        value={stop.longitude}
+                        onChange={(e) => updateStop(index, "longitude", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`latitude-${index}`}>Latitude</Label>
+                      <Input
+                        id={`latitude-${index}`}
+                        type="number"
+                        step="0.0000001"
+                        placeholder="38.9072"
+                        value={stop.latitude}
+                        onChange={(e) => updateStop(index, "latitude", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`arrival_time-${index}`}>Expected Arrival Time</Label>
+                    <Input
+                      id={`arrival_time-${index}`}
+                      type="time"
+                      value={stop.arrival_time}
+                      onChange={(e) => updateStop(index, "arrival_time", e.target.value)}
+                    />
+                  </div>
                 </div>
               ))}
               <Button type="button" variant="outline" onClick={addStop}>
@@ -148,26 +182,22 @@ export default function NewRoutePage() {
               </Button>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select name="status" defaultValue="active">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="maintenance">Under Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <Button type="submit" disabled={loading}>
               {loading ? "Adding..." : "Add Route"}
             </Button>
           </form>
         </CardContent>
       </Card>
+      </div>
+      {/* Scroll buttons */}
+      <div className="fixed bottom-8 right-8 flex flex-col gap-2 z-50">
+        <Button variant="secondary" size="icon" onClick={scrollToTop} aria-label="Scroll to top">
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg>
+        </Button>
+        <Button variant="secondary" size="icon" onClick={scrollToBottom} aria-label="Scroll to bottom">
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+        </Button>
+      </div>
     </div>
   )
 }

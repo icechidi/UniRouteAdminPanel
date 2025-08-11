@@ -1,123 +1,173 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
+import bcrypt from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
     const { databaseUrl } = await request.json()
 
-    if (!databaseUrl || databaseUrl === "your_neon_database_url") {
+    if (!databaseUrl || databaseUrl === "your_database_url") {
       return NextResponse.json({ message: "Please provide a valid database URL" }, { status: 400 })
     }
 
     const sql = neon(databaseUrl)
 
-    // Create all tables and insert initial data
-    await sql`
-      -- Create database schema for UniRoute system
+    // Define the new schema directly in the API route for initialization
+    // This ensures the setup process uses the latest schema
+    const schemaSql = `
+      -- Drop existing tables if they exist to ensure a clean rebuild
+      DROP TABLE IF EXISTS user_activity_logs CASCADE;
+      DROP TABLE IF EXISTS schedule_notifications CASCADE;
+      DROP TABLE IF EXISTS emergency_notifications CASCADE;
+      DROP TABLE IF EXISTS bus_times CASCADE;
+      DROP TABLE IF EXISTS student_bookings CASCADE; -- This table is being replaced
+      DROP TABLE IF EXISTS schedules CASCADE;
+      DROP TABLE IF EXISTS route_stops CASCADE;
+      DROP TABLE IF EXISTS routes CASCADE;
+      DROP TABLE IF EXISTS buses CASCADE;
+      DROP TABLE IF EXISTS drivers CASCADE; -- Drivers are now users with a role
+      DROP TABLE IF EXISTS sessions CASCADE;
+      DROP TABLE IF EXISTS users CASCADE;
+      DROP TABLE IF EXISTS roles CASCADE;
+      DROP TABLE IF EXISTS messages CASCADE;
+      DROP TABLE IF EXISTS semester_schedules CASCADE;
+      DROP TABLE IF EXISTS settings CASCADE;
 
-      -- Users table for authentication and user management
+      -- 1. Roles Table
+      CREATE TABLE IF NOT EXISTS roles (
+          role_id SERIAL PRIMARY KEY,
+          name VARCHAR(50) UNIQUE NOT NULL -- e.g., 'admin', 'driver', 'student'
+      );
+
+      -- 2. Users Table
       CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
+          user_id SERIAL PRIMARY KEY,
+          role_id INTEGER REFERENCES roles(role_id) ON DELETE SET NULL, -- Link to roles table
+          first_name VARCHAR(255) NOT NULL,
+          last_name VARCHAR(255) NOT NULL,
+          username VARCHAR(255) UNIQUE,
+          password_hash VARCHAR(255), -- For manual logins
           email VARCHAR(255) UNIQUE NOT NULL,
-          role VARCHAR(50) DEFAULT 'user',
           phone VARCHAR(20),
-          password_hash VARCHAR(255),
-          google_id VARCHAR(255),
-          avatar_url VARCHAR(500),
+          country VARCHAR(100),
+          photo_url VARCHAR(500),
+          language_pref VARCHAR(10),
+          unique_id UUID DEFAULT gen_random_uuid(), -- Unique identifier for external systems/tracking
+          google_id VARCHAR(255), -- For Google OAuth
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Drivers table
-      CREATE TABLE IF NOT EXISTS drivers (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          phone VARCHAR(20) NOT NULL,
-          license_number VARCHAR(50) UNIQUE NOT NULL,
-          experience_years INTEGER DEFAULT 0,
-          status VARCHAR(20) DEFAULT 'active',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- Buses table
+      -- 3. Buses Table
       CREATE TABLE IF NOT EXISTS buses (
-          id SERIAL PRIMARY KEY,
+          bus_id SERIAL PRIMARY KEY,
           bus_number VARCHAR(50) UNIQUE NOT NULL,
+          license_plate VARCHAR(50) UNIQUE,
           capacity INTEGER NOT NULL,
           model VARCHAR(100),
           year INTEGER,
-          status VARCHAR(20) DEFAULT 'active',
-          driver_id INTEGER REFERENCES drivers(id),
+          status VARCHAR(20) DEFAULT 'active', -- e.g., 'active', 'maintenance', 'inactive'
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Routes table
+      -- 4. Messages Table
+      CREATE TYPE MESSAGE_CATEGORY AS ENUM ('emergency', 'schedule', 'admin', 'driver', 'feedback');
+      CREATE TABLE IF NOT EXISTS messages (
+          message_id SERIAL PRIMARY KEY,
+          message_text TEXT NOT NULL,
+          category MESSAGE_CATEGORY NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 5. Routes Table
       CREATE TABLE IF NOT EXISTS routes (
-          id SERIAL PRIMARY KEY,
-          title VARCHAR(255) NOT NULL,
-          from_location VARCHAR(255) NOT NULL,
-          to_location VARCHAR(255) NOT NULL,
-          distance_km DECIMAL(10,2),
-          estimated_duration INTEGER,
-          status VARCHAR(20) DEFAULT 'active',
+          route_id SERIAL PRIMARY KEY,
+          route_name VARCHAR(255) UNIQUE NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Route stops table
+      -- 6. RouteStops Table
       CREATE TABLE IF NOT EXISTS route_stops (
-          id SERIAL PRIMARY KEY,
-          route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
+          route_stop_id SERIAL PRIMARY KEY,
+          route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
           stop_name VARCHAR(255) NOT NULL,
+          longitude DECIMAL(10,7),
+          latitude DECIMAL(10,7),
           stop_order INTEGER NOT NULL,
-          arrival_time TIME,
+          arrival_time TIME, -- Expected arrival time at this stop
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Schedules table
+      -- 7. EmergencyNotification Table
+      CREATE TABLE IF NOT EXISTS emergency_notifications (
+          notification_id SERIAL PRIMARY KEY,
+          route_id INTEGER REFERENCES routes(route_id) ON DELETE SET NULL,
+          bus_id INTEGER REFERENCES buses(bus_id) ON DELETE SET NULL,
+          user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL, -- Driver who triggered it
+          message_id INTEGER REFERENCES messages(message_id) ON DELETE SET NULL, -- Emergency message
+          triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          location_longitude DECIMAL(10,7), -- Current location of emergency
+          location_latitude DECIMAL(10,7),
+          status VARCHAR(50) DEFAULT 'active' -- e.g., 'active', 'resolved'
+      );
+
+      -- 8. Schedules Table (Recurring schedule definitions)
+      CREATE TYPE SCHEDULE_TYPE AS ENUM ('weekly', 'daily', 'semester');
       CREATE TABLE IF NOT EXISTS schedules (
-          id SERIAL PRIMARY KEY,
-          route_id INTEGER REFERENCES routes(id),
-          bus_id INTEGER REFERENCES buses(id),
-          driver_id INTEGER REFERENCES drivers(id),
-          departure_time TIME NOT NULL,
-          arrival_time TIME NOT NULL,
-          days_of_week VARCHAR(200) NOT NULL,
-          status VARCHAR(20) DEFAULT 'active',
+          schedule_id SERIAL PRIMARY KEY,
+          route_id INTEGER REFERENCES routes(route_id) ON DELETE CASCADE,
+          bus_id INTEGER REFERENCES buses(bus_id) ON DELETE SET NULL,
+          driver_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL, -- User with 'driver' role
+          type_of_schedule SCHEDULE_TYPE NOT NULL,
+          start_date DATE, -- For daily/semester schedules
+          end_date DATE,   -- For daily/semester schedules
+          days_of_week JSONB, -- e.g., '["Monday", "Wednesday", "Friday"]' for weekly
+          is_active BOOLEAN DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Student bookings table
-      CREATE TABLE IF NOT EXISTS student_bookings (
-          id SERIAL PRIMARY KEY,
-          student_name VARCHAR(255) NOT NULL,
-          student_email VARCHAR(255) NOT NULL,
-          student_id VARCHAR(50) NOT NULL,
-          phone VARCHAR(20),
-          schedule_id INTEGER REFERENCES schedules(id),
-          booking_date DATE NOT NULL,
-          pickup_stop VARCHAR(255) NOT NULL,
-          drop_stop VARCHAR(255) NOT NULL,
-          status VARCHAR(20) DEFAULT 'confirmed',
+      -- 9. ScheduleNotification Table
+      CREATE TABLE IF NOT EXISTS schedule_notifications (
+          schedule_notification_id SERIAL PRIMARY KEY,
+          message_id INTEGER REFERENCES messages(message_id) ON DELETE CASCADE, -- Schedule-related message
+          schedule_id INTEGER REFERENCES schedules(schedule_id) ON DELETE CASCADE,
+          sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 10. SemesterSchedule Table
+      CREATE TYPE SEMESTER_TYPE AS ENUM ('fall', 'spring', 'summer', 'winter');
+      CREATE TABLE IF NOT EXISTS semester_schedules (
+          sem_schedule_id SERIAL PRIMARY KEY,
+          academic_year VARCHAR(9) NOT NULL, -- e.g., '2023-2024'
+          semester SEMESTER_TYPE NOT NULL,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          holidays JSONB, -- e.g., '[{"date": "2023-12-25", "name": "Christmas"}]'
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (academic_year, semester)
+      );
+
+      -- 11. BusTime Table (Specific times a bus is at a stop for a given schedule)
+      CREATE TABLE IF NOT EXISTS bus_times (
+          bus_time_id SERIAL PRIMARY KEY,
+          schedule_id INTEGER REFERENCES schedules(schedule_id) ON DELETE CASCADE,
+          route_stop_id INTEGER REFERENCES route_stops(route_stop_id) ON DELETE CASCADE,
+          scheduled_departure_time TIME NOT NULL,
+          scheduled_arrival_time TIME NOT NULL,
+          actual_departure_time TIME, -- For real-time tracking
+          actual_arrival_time TIME,   -- For real-time tracking
+          status VARCHAR(50) DEFAULT 'on_time', -- e.g., 'on_time', 'delayed', 'completed'
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Sessions table for authentication
-      CREATE TABLE IF NOT EXISTS sessions (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          session_token VARCHAR(255) UNIQUE NOT NULL,
-          expires_at TIMESTAMP NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- Settings table for system configuration
+      -- 12. Settings Table (Keep as is, but ensure it's created)
       CREATE TABLE IF NOT EXISTS settings (
           id SERIAL PRIMARY KEY,
           key VARCHAR(100) UNIQUE NOT NULL,
@@ -126,45 +176,184 @@ export async function POST(request: NextRequest) {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- Create indexes
+      -- 13. Sessions Table (Keep as is, but ensure it's created)
+      CREATE TABLE IF NOT EXISTS sessions (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+          session_token VARCHAR(255) UNIQUE NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 14. User Activity Logs
+      CREATE TABLE IF NOT EXISTS user_activity_logs (
+          log_id SERIAL PRIMARY KEY,
+          user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+          activity_type VARCHAR(100) NOT NULL, -- e.g., 'login', 'logout', 'view_page', 'create_bus'
+          details JSONB, -- Additional details about the activity
+          ip_address VARCHAR(45),
+          user_agent TEXT,
+          timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Indexes for performance
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
       CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(session_token);
+      CREATE INDEX IF NOT EXISTS idx_buses_status ON buses(status);
+      CREATE INDEX IF NOT EXISTS idx_routes_is_active ON routes(is_active);
+      CREATE INDEX IF NOT EXISTS idx_route_stops_route_id ON route_stops(route_id);
+      CREATE INDEX IF NOT EXISTS idx_schedules_route_id ON schedules(route_id);
+      CREATE INDEX IF NOT EXISTS idx_schedules_bus_id ON schedules(bus_id);
+      CREATE INDEX IF NOT EXISTS idx_schedules_driver_user_id ON schedules(driver_user_id);
+      CREATE INDEX IF NOT EXISTS idx_bus_times_schedule_id ON bus_times(schedule_id);
+      CREATE INDEX IF NOT EXISTS idx_bus_times_route_stop_id ON bus_times(route_stop_id);
+      CREATE INDEX IF NOT EXISTS idx_emergency_notifications_route_id ON emergency_notifications(route_id);
+      CREATE INDEX IF NOT EXISTS idx_emergency_notifications_bus_id ON emergency_notifications(bus_id);
+      CREATE INDEX IF NOT EXISTS idx_emergency_notifications_user_id ON emergency_notifications(user_id);
+      CREATE INDEX IF NOT EXISTS idx_messages_category ON messages(category);
+      CREATE INDEX IF NOT EXISTS idx_user_activity_logs_user_id ON user_activity_logs(user_id);
+    `
+    await sql.unsafe(schemaSql)
+
+    // Seed initial data
+    const hashedPassword = await bcrypt.hash("password", 10)
+
+    await sql`
+      -- Insert Roles
+      INSERT INTO roles (name) VALUES
+      ('admin'),
+      ('driver'),
+      ('student')
+      ON CONFLICT (name) DO NOTHING;
     `
 
-    // Insert sample data
+    // Fetch role IDs
+    const roles = await sql`SELECT role_id, name FROM roles;`
+    const roleMap = roles.reduce((acc: any, role: any) => {
+      acc[role.name] = role.role_id
+      return acc
+    }, {})
+
     await sql`
-      -- Insert sample users with hashed passwords
-      INSERT INTO users (name, email, role, phone, password_hash) VALUES
-      ('Admin User', 'admin@uniroute.edu', 'admin', '+1234567890', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'),
-      ('John Manager', 'manager@uniroute.edu', 'manager', '+1234567891', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'),
-      ('Student User', 'student@uniroute.edu', 'student', '+1234567892', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi')
+      -- Insert Users
+      INSERT INTO users (role_id, first_name, last_name, username, password_hash, email, phone, country, language_pref) VALUES
+      (${roleMap.admin}, 'Admin', 'User', 'admin', ${hashedPassword}, 'admin@uniroute.edu', '+1234567890', 'USA', 'en'),
+      (${roleMap.driver}, 'Michael', 'Johnson', 'mjohnson', ${hashedPassword}, 'michael.j@uniroute.edu', '+1234567893', 'USA', 'en'),
+      (${roleMap.driver}, 'Sarah', 'Williams', 'swilliams', ${hashedPassword}, 'sarah.w@uniroute.edu', '+1234567894', 'USA', 'en'),
+      (${roleMap.student}, 'Student', 'User', 'student', ${hashedPassword}, 'student@uniroute.edu', '+1234567892', 'USA', 'en'),
+      (${roleMap.student}, 'Alice', 'Johnson', 'ajohnson', ${hashedPassword}, 'alice.j@student.edu', '+1234567801', 'USA', 'en')
       ON CONFLICT (email) DO NOTHING;
+    `
 
-      -- Insert sample drivers
-      INSERT INTO drivers (name, email, phone, license_number, experience_years) VALUES
-      ('Michael Johnson', 'michael.j@uniroute.edu', '+1234567893', 'DL123456789', 5),
-      ('Sarah Williams', 'sarah.w@uniroute.edu', '+1234567894', 'DL987654321', 8),
-      ('David Brown', 'david.b@uniroute.edu', '+1234567895', 'DL456789123', 3),
-      ('Lisa Davis', 'lisa.d@uniroute.edu', '+1234567896', 'DL789123456', 6)
-      ON CONFLICT (email) DO NOTHING;
+    // Fetch user IDs
+    const users = await sql`SELECT user_id, email FROM users;`
+    const userMap = users.reduce((acc: any, user: any) => {
+      acc[user.email] = user.user_id
+      return acc
+    }, {})
 
-      -- Insert sample buses
-      INSERT INTO buses (bus_number, capacity, model, year, driver_id) VALUES
-      ('UNI-001', 45, 'Volvo B7R', 2020, 1),
-      ('UNI-002', 50, 'Tata Starbus', 2021, 2),
-      ('UNI-003', 40, 'Ashok Leyland', 2019, 3),
-      ('UNI-004', 45, 'Volvo B9R', 2022, 4)
+    await sql`
+      -- Insert Buses
+      INSERT INTO buses (bus_number, license_plate, capacity, model, year, status) VALUES
+      ('UNI-001', 'ABC-123', 45, 'Volvo B7R', 2020, 'active'),
+      ('UNI-002', 'DEF-456', 50, 'Tata Starbus', 2021, 'active'),
+      ('UNI-003', 'GHI-789', 40, 'Ashok Leyland', 2019, 'maintenance')
       ON CONFLICT (bus_number) DO NOTHING;
+    `
 
-      -- Insert sample routes
-      INSERT INTO routes (title, from_location, to_location, distance_km, estimated_duration) VALUES
-      ('Campus to Downtown', 'University Campus', 'Downtown Station', 15.5, 45),
-      ('Campus to Airport', 'University Campus', 'City Airport', 25.0, 60),
-      ('Campus to Mall', 'University Campus', 'Shopping Mall', 8.2, 25),
-      ('Campus to Hospital', 'University Campus', 'City Hospital', 12.0, 35);
+    // Fetch bus IDs
+    const buses = await sql`SELECT bus_id, bus_number FROM buses;`
+    const busMap = buses.reduce((acc: any, bus: any) => {
+      acc[bus.bus_number] = bus.bus_id
+      return acc
+    }, {})
 
-      -- Insert sample settings
+    await sql`
+      -- Insert Routes
+      INSERT INTO routes (route_name, is_active) VALUES
+      ('Campus to Downtown', TRUE),
+      ('Campus to Airport', TRUE),
+      ('Campus to Mall', TRUE)
+      ON CONFLICT (route_name) DO NOTHING;
+    `
+
+    // Fetch route IDs
+    const routes = await sql`SELECT route_id, route_name FROM routes;`
+    const routeMap = routes.reduce((acc: any, route: any) => {
+      acc[route.route_name] = route.route_id
+      return acc
+    }, {})
+
+    await sql`
+      -- Insert Route Stops
+      INSERT INTO route_stops (route_id, stop_name, longitude, latitude, stop_order, arrival_time) VALUES
+      (${routeMap['Campus to Downtown']}, 'University Campus', -77.0369, 38.9072, 1, '08:00:00'),
+      (${routeMap['Campus to Downtown']}, 'Library Junction', -77.0450, 38.9150, 2, '08:10:00'),
+      (${routeMap['Campus to Downtown']}, 'Downtown Station', -77.0200, 38.9000, 3, '08:25:00'),
+      (${routeMap['Campus to Airport']}, 'University Campus', -77.0369, 38.9072, 1, '09:00:00'),
+      (${routeMap['Campus to Airport']}, 'City Airport Terminal', -77.0000, 38.8500, 2, '09:30:00')
+      ON CONFLICT DO NOTHING;
+    `
+
+    // Fetch route stop IDs
+    const routeStops = await sql`SELECT route_stop_id, stop_name FROM route_stops;`
+    const routeStopMap = routeStops.reduce((acc: any, stop: any) => {
+      acc[stop.stop_name] = stop.route_stop_id
+      return acc
+    }, {})
+
+    await sql`
+      -- Insert Schedules
+      INSERT INTO schedules (route_id, bus_id, driver_user_id, type_of_schedule, start_date, end_date, days_of_week, is_active) VALUES
+      (${routeMap['Campus to Downtown']}, ${busMap['UNI-001']}, ${userMap['michael.j@uniroute.edu']}, 'weekly', NULL, NULL, '["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]'::jsonb, TRUE),
+      (${routeMap['Campus to Airport']}, ${busMap['UNI-002']}, ${userMap['sarah.w@uniroute.edu']}, 'daily', CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days', NULL, TRUE)
+      ON CONFLICT DO NOTHING;
+    `
+
+    // Fetch schedule IDs
+    const schedules = await sql`SELECT schedule_id, route_id, bus_id FROM schedules;`
+    const scheduleMap = schedules.reduce((acc: any, sched: any) => {
+      acc[`${sched.route_id}-${sched.bus_id}`] = sched.schedule_id
+      return acc
+    }, {})
+
+    await sql`
+      -- Insert Bus Times for Campus to Downtown (Schedule 1)
+      INSERT INTO bus_times (schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time) VALUES
+      (${scheduleMap[`${routeMap['Campus to Downtown']}-${busMap['UNI-001']}`]}, ${routeStopMap['University Campus']}, '08:00:00', '08:00:00'),
+      (${scheduleMap[`${routeMap['Campus to Downtown']}-${busMap['UNI-001']}`]}, ${routeStopMap['Library Junction']}, '08:10:00', '08:10:00'),
+      (${scheduleMap[`${routeMap['Campus to Downtown']}-${busMap['UNI-001']}`]}, ${routeStopMap['Downtown Station']}, '08:25:00', '08:25:00');
+
+      -- Insert Bus Times for Campus to Airport (Schedule 2)
+      INSERT INTO bus_times (schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time) VALUES
+      (${scheduleMap[`${routeMap['Campus to Airport']}-${busMap['UNI-002']}`]}, ${routeStopMap['University Campus']}, '09:00:00', '09:00:00'),
+      (${scheduleMap[`${routeMap['Campus to Airport']}-${busMap['UNI-002']}`]}, ${routeStopMap['City Airport Terminal']}, '09:30:00', '09:30:00');
+    `
+
+    await sql`
+      -- Insert Messages
+      INSERT INTO messages (message_text, category) VALUES
+      ('Emergency: Bus UNI-001 breakdown near Library Junction. Assistance dispatched.', 'emergency'),
+      ('Reminder: Your 8 AM bus to Downtown is on schedule.', 'schedule'),
+      ('Welcome to UniRoute Admin Dashboard!', 'admin'),
+      ('New route added: Campus to Hospital.', 'admin'),
+      ('Driver Michael Johnson has started his shift.', 'driver'),
+      ('Great service today!', 'feedback'),
+      ('Bus UNI-003 is currently under maintenance.', 'admin')
+      ON CONFLICT DO NOTHING;
+    `
+
+    await sql`
+      -- Insert Semester Schedules
+      INSERT INTO semester_schedules (academic_year, semester, start_date, end_date, holidays) VALUES
+      ('2023-2024', 'fall', '2023-09-01', '2023-12-15', '[{"date": "2023-11-23", "name": "Thanksgiving"}]'::jsonb),
+      ('2023-2024', 'spring', '2024-01-10', '2024-05-20', '[{"date": "2024-03-15", "name": "Spring Break"}]'::jsonb)
+      ON CONFLICT (academic_year, semester) DO NOTHING;
+    `
+
+    await sql`
+      -- Insert Settings
       INSERT INTO settings (key, value, description) VALUES
       ('system_name', 'UniRoute', 'System name'),
       ('max_capacity_per_bus', '50', 'Maximum capacity per bus'),

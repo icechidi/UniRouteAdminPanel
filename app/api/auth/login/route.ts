@@ -1,3 +1,4 @@
+export const runtime = "nodejs";
 import { type NextRequest, NextResponse } from "next/server"
 import { getSql, isDatabaseConfigured } from "@/lib/db"
 import { verifyPassword, createSession } from "@/lib/auth"
@@ -9,15 +10,17 @@ export async function POST(request: NextRequest) {
     }
 
     const { email, password } = await request.json()
-    const sql = getSql()
 
+    const sql = getSql()
     // Find user by email
-    const users = await sql`
-      SELECT u.user_id, u.first_name, u.last_name, u.username, u.email, u.password_hash, r.name as role_name
-      FROM users u
-      JOIN roles r ON u.role_id = r.role_id
-      WHERE u.email = ${email}
-    `
+    const usersResult = await sql.query(
+      `SELECT u.user_id, u.first_name, u.last_name, u.username, u.email, u.password_hash, r.name as role_name
+        FROM users u
+        JOIN roles r ON u.role_id = r.role_id
+        WHERE u.email = $1`,
+      [email]
+    )
+    const users = usersResult.rows
 
     if (users.length === 0) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
@@ -25,15 +28,11 @@ export async function POST(request: NextRequest) {
 
     const user = users[0]
 
-    let isValidPassword = false
-
-    if (user.password_hash) {
-      isValidPassword = await verifyPassword(password, user.password_hash)
-    } else {
-      // For demo purposes, allow "password" as the password if no hash exists
-      isValidPassword = password === "password"
+    if (!user.password_hash) {
+      // User has no password set, deny login
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }
-
+    const isValidPassword = await verifyPassword(password, user.password_hash)
     if (!isValidPassword) {
       return NextResponse.json({ message: "Invalid credentials" }, { status: 401 })
     }

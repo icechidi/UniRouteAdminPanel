@@ -43,8 +43,7 @@ export default function LoginPage() {
           title: "Success",
           description: "Logged in successfully",
         })
-        router.push("/")
-        router.refresh()
+        window.location.href = "/"
       } else {
         const error = await response.json()
         throw new Error(error.message || "Login failed")

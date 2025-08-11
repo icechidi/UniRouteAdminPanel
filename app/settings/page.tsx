@@ -6,18 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Save, SettingsIcon } from "lucide-react"
+import { Save, SettingsIcon } from 'lucide-react'
+import { isDatabaseConfigured } from "@/lib/db"
 
 export default function SettingsPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [settings, setSettings] = useState<Record<string, string>>({})
+  const dbConfigured = isDatabaseConfigured()
 
   useEffect(() => {
     fetchSettings()
   }, [])
 
   const fetchSettings = async () => {
+    if (!dbConfigured) {
+      toast({
+        title: "Database Not Configured",
+        description: "Settings cannot be loaded in demo mode or without database connection.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       const response = await fetch("/api/settings")
       const data = await response.json()
@@ -36,6 +46,14 @@ export default function SettingsPage() {
   }
 
   const handleSave = async () => {
+    if (!dbConfigured) {
+      toast({
+        title: "Database Not Configured",
+        description: "Settings cannot be saved in demo mode or without database connection.",
+        variant: "destructive",
+      })
+      return
+    }
     setLoading(true)
     try {
       const response = await fetch("/api/settings", {
@@ -76,7 +94,7 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
           <p className="text-muted-foreground">Configure system settings</p>
         </div>
-        <Button onClick={handleSave} disabled={loading}>
+        <Button onClick={handleSave} disabled={loading || !dbConfigured}>
           <Save className="mr-2 h-4 w-4" />
           {loading ? "Saving..." : "Save Changes"}
         </Button>
@@ -100,6 +118,7 @@ export default function SettingsPage() {
                   value={settings.system_name || ""}
                   onChange={(e) => updateSetting("system_name", e.target.value)}
                   placeholder="UniRoute"
+                  disabled={!dbConfigured}
                 />
               </div>
               <div className="space-y-2">
@@ -110,6 +129,7 @@ export default function SettingsPage() {
                   value={settings.max_capacity_per_bus || ""}
                   onChange={(e) => updateSetting("max_capacity_per_bus", e.target.value)}
                   placeholder="50"
+                  disabled={!dbConfigured}
                 />
               </div>
             </div>
@@ -122,6 +142,7 @@ export default function SettingsPage() {
                 value={settings.booking_advance_days || ""}
                 onChange={(e) => updateSetting("booking_advance_days", e.target.value)}
                 placeholder="7"
+                disabled={!dbConfigured}
               />
             </div>
           </CardContent>
@@ -142,6 +163,7 @@ export default function SettingsPage() {
                   value={settings.support_email || ""}
                   onChange={(e) => updateSetting("support_email", e.target.value)}
                   placeholder="support@uniroute.edu"
+                  disabled={!dbConfigured}
                 />
               </div>
               <div className="space-y-2">
@@ -151,6 +173,7 @@ export default function SettingsPage() {
                   value={settings.support_phone || ""}
                   onChange={(e) => updateSetting("support_phone", e.target.value)}
                   placeholder="+1234567890"
+                  disabled={!dbConfigured}
                 />
               </div>
             </div>
@@ -167,8 +190,8 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label>Database Status</Label>
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm">Connected</span>
+                  <div className={`h-2 w-2 rounded-full ${dbConfigured ? "bg-green-500" : "bg-red-500"}`}></div>
+                  <span className="text-sm">{dbConfigured ? "Connected" : "Not Configured / Demo Mode"}</span>
                 </div>
               </div>
               <div className="space-y-2">

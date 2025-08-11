@@ -1,20 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import {
-  Bus,
-  Calendar,
-  Home,
-  Route,
-  Settings,
-  Users,
-  UserCheck,
-  BarChart3,
-  ChevronRight,
-  ChevronLeft,
-  ChevronDown,
-  BookOpen,
-} from "lucide-react"
+import { Bus, Calendar, Home, Route, Settings, Users, ChevronRight, ChevronLeft, ChevronDown, BookOpen, MessageSquare, Clock, GraduationCap, AlertTriangle, Activity } from 'lucide-react'
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -26,49 +13,39 @@ const menuItems = [
     title: "OVERVIEW",
     items: [
       { title: "Dashboard", url: "/", icon: Home },
-      { title: "Reports", url: "/reports", icon: BarChart3 },
+      { title: "Activity Logs", url: "/activity-logs", icon: Activity },
     ],
   },
   {
-    title: "MANAGE BUSES",
+    title: "MANAGEMENT",
     collapsible: true,
     items: [
-      { title: "View All", url: "/buses", icon: Bus },
-      { title: "Add New", url: "/buses/new", icon: Bus },
+      { title: "Users", url: "/users", icon: Users },
+      { title: "Buses", url: "/buses", icon: Bus },
+      { title: "Routes", url: "/routes", icon: Route },
+      { title: "Schedules", url: "/schedules", icon: Calendar },
+      { title: "Bus Times", url: "/bus-times", icon: Clock },
+      { title: "Semester Schedules", url: "/semester-schedules", icon: GraduationCap },
     ],
   },
   {
-    title: "MANAGE DRIVERS",
+    title: "COMMUNICATION",
     collapsible: true,
     items: [
-      { title: "View All", url: "/drivers", icon: UserCheck },
-      { title: "Add New", url: "/drivers/new", icon: UserCheck },
+      { title: "Messages", url: "/messages", icon: MessageSquare },
+      { title: "Emergency Trigger", url: "/emergency-trigger", icon: AlertTriangle },
+      { title: "Feedback", url: "/feedback", icon: MessageSquare },
     ],
   },
   {
-    title: "MANAGE ROUTES",
+    title: "STUDENT PORTAL",
     collapsible: true,
-    items: [
-      { title: "View All", url: "/routes", icon: Route },
-      { title: "Add New", url: "/routes/new", icon: Route },
-    ],
-  },
-  {
-    title: "MANAGE SCHEDULE",
-    collapsible: true,
-    items: [
-      { title: "View All", url: "/schedules", icon: Calendar },
-      { title: "Add New", url: "/schedules/new", icon: Calendar },
-      { title: "Student Bookings", url: "/schedules/bookings", icon: BookOpen },
-    ],
+    items: [{ title: "My Schedules", url: "/student-schedules", icon: BookOpen }],
   },
   {
     title: "SYSTEM",
     collapsible: true,
-    items: [
-      { title: "Users", url: "/users", icon: Users },
-      { title: "Settings", url: "/settings", icon: Settings },
-    ],
+    items: [{ title: "Settings", url: "/settings", icon: Settings }],
   },
 ]
 
@@ -76,10 +53,9 @@ export function AppSidebar() {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    "MANAGE BUSES": true,
-    "MANAGE DRIVERS": true,
-    "MANAGE ROUTES": true,
-    "MANAGE SCHEDULE": true,
+    MANAGEMENT: true,
+    COMMUNICATION: true,
+    "STUDENT PORTAL": true,
     SYSTEM: true,
   })
 

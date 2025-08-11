@@ -9,18 +9,19 @@ export async function GET() {
 
     const sql = getSql()
     const schedules = await sql`
-      SELECT s.*, 
-             r.title as route_title,
+      SELECT s.*,
+             r.route_name,
              b.bus_number,
-             d.name as driver_name
+             u.first_name || ' ' || u.last_name as driver_name
       FROM schedules s
-      JOIN routes r ON s.route_id = r.id
-      JOIN buses b ON s.bus_id = b.id
-      JOIN drivers d ON s.driver_id = d.id
+      JOIN routes r ON s.route_id = r.route_id
+      JOIN buses b ON s.bus_id = b.bus_id
+      LEFT JOIN users u ON s.driver_user_id = u.user_id
       ORDER BY s.created_at DESC
     `
     return NextResponse.json(schedules)
   } catch (error) {
+    console.error("Failed to fetch schedules:", error)
     return NextResponse.json({ error: "Failed to fetch schedules" }, { status: 500 })
   }
 }
@@ -32,17 +33,48 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { route_id, bus_id, driver_id, departure_time, arrival_time, days_of_week, status } = body
+    const {
+      route_id,
+      bus_id,
+      driver_user_id,
+      type_of_schedule,
+      start_date,
+      end_date,
+      days_of_week,
+      is_active,
+      bus_times, // Array of { route_stop_id, scheduled_departure_time, scheduled_arrival_time }
+    } = body
 
     const sql = getSql()
-    const result = await sql`
-      INSERT INTO schedules (route_id, bus_id, driver_id, departure_time, arrival_time, days_of_week, status)
-      VALUES (${route_id}, ${bus_id}, ${driver_id}, ${departure_time}, ${arrival_time}, ${days_of_week}, ${status})
+
+    // Insert schedule
+    const scheduleResult = await sql`
+      INSERT INTO schedules (route_id, bus_id, driver_user_id, type_of_schedule, start_date, end_date, days_of_week, is_active)
+      VALUES (
+        ${route_id},
+        ${bus_id},
+        ${driver_user_id},
+        ${type_of_schedule},
+        ${start_date || null},
+        ${end_date || null},
+        ${days_of_week ? JSON.stringify(days_of_week) : null}::jsonb,
+        ${is_active}
+      )
       RETURNING *
     `
+    const schedule = scheduleResult[0]
 
-    return NextResponse.json(result[0], { status: 201 })
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to create schedule" }, { status: 500 })
-  }
-}
+    // Insert bus times for this schedule
+    if (bus_times && bus_times.length > 0) {
+      for (const bt of bus_times) {
+        await sql`
+          INSERT INTO bus_times (schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time)
+          VALUES (
+            ${schedule.schedule_id},
+            ${bt.route_stop_id},
+            ${bt.scheduled_departure_time},
+        const insertQuery = `INSERT INTO schedules (route_id, bus_id, driver_user_id, type_of_schedule, start_date, end_date, days_of_week, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          RETURNING *`;
+        const scheduleResult = await sql.query(insertQuery, [route_id, bus_id, driver_user_id, type_of_schedule, start_date || null, end_date || null, days_of_week ? JSON.stringify(days_of_week) : null, is_active]);
+    }

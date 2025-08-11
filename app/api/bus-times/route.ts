@@ -53,13 +53,11 @@ export async function POST(request: NextRequest) {
     const { schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time } = body
 
     const sql = getSql()
-    const result = await sql`
-      INSERT INTO bus_times (schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time)
-      VALUES (${schedule_id}, ${route_stop_id}, ${scheduled_departure_time}, ${scheduled_arrival_time})
-      RETURNING *
-    `
-
-    return NextResponse.json(result[0], { status: 201 })
+    const insertQuery = `INSERT INTO bus_times (schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *`;
+    const result = await sql.query(insertQuery, [schedule_id, route_stop_id, scheduled_departure_time, scheduled_arrival_time]);
+    return NextResponse.json(result.rows[0], { status: 201 })
   } catch (error) {
     console.error("Failed to create bus time:", error)
     return NextResponse.json({ error: "Failed to create bus time" }, { status: 500 })

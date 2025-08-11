@@ -1,9 +1,7 @@
-export const runtime = "nodejs"
-
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow access to setup, login page and API routes
@@ -17,19 +15,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check authentication
-  try {
-    const { getSession } = await import("@/lib/auth")
-    const user = await getSession()
-
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url))
-    }
-  } catch (error) {
-    console.error("Auth middleware error:", error)
+  // Edge runtime: Only check for a session cookie, do not use Node.js modules
+  const session = request.cookies.get("session")?.value
+  const demoSession = request.cookies.get("demo_session")?.value
+  if (!session && !demoSession) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
-
   return NextResponse.next()
 }
 

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft } from 'lucide-react'
 import Link from "next/link"
 
 export default function NewBusPage() {
@@ -25,6 +25,7 @@ export default function NewBusPage() {
     const formData = new FormData(event.currentTarget)
     const data = {
       bus_number: formData.get("bus_number") as string,
+      license_plate: formData.get("license_plate") as string,
       capacity: Number.parseInt(formData.get("capacity") as string),
       model: formData.get("model") as string,
       year: Number.parseInt(formData.get("year") as string),
@@ -88,34 +89,40 @@ export default function NewBusPage() {
                 <Input id="bus_number" name="bus_number" placeholder="UNI-001" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="capacity">Capacity</Label>
-                <Input id="capacity" name="capacity" type="number" placeholder="45" required />
+                <Label htmlFor="license_plate">License Plate</Label>
+                <Input id="license_plate" name="license_plate" placeholder="ABC-123" required />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
+                <Label htmlFor="capacity">Capacity</Label>
+                <Input id="capacity" name="capacity" type="number" placeholder="45" required />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="model">Model</Label>
                 <Input id="model" name="model" placeholder="Volvo B7R" required />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="year">Year</Label>
                 <Input id="year" name="year" type="number" placeholder="2023" required />
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select name="status" defaultValue="active">
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select name="status" defaultValue="active">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Button type="submit" disabled={loading}>

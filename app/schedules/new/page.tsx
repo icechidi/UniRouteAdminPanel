@@ -10,26 +10,34 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import Link from "next/link"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 
 interface Route {
-  id: number
-  title: string
+  route_id: number
+  route_name: string
 }
 
 interface Bus {
-  id: number
+  bus_id: number
   bus_number: string
 }
 
-interface Driver {
-  id: number
-  name: string
+interface User {
+  user_id: number
+  first_name: string
+  last_name: string
 }
 
-const daysOfWeek = [
+interface RouteStop {
+  route_stop_id: number
+  stop_name: string
+  route_id: number
+}
+
+const daysOfWeekOptions = [
   { id: "Monday", label: "Monday" },
   { id: "Tuesday", label: "Tuesday" },
   { id: "Wednesday", label: "Wednesday" },
@@ -45,24 +53,40 @@ export default function NewSchedulePage() {
   const [loading, setLoading] = useState(false)
   const [routes, setRoutes] = useState<Route[]>([])
   const [buses, setBuses] = useState<Bus[]>([])
-  const [drivers, setDrivers] = useState<Driver[]>([])
+  const [drivers, setDrivers] = useState<User[]>([])
+  const [routeStops, setRouteStops] = useState<RouteStop[]>([])
+
+  const [selectedRouteId, setSelectedRouteId] = useState<string>("")
+  const [scheduleType, setScheduleType] = useState<"weekly" | "daily" | "semester">("weekly")
   const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [busTimes, setBusTimes] = useState([
+    { route_stop_id: "", scheduled_departure_time: "", scheduled_arrival_time: "" },
+  ])
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    if (selectedRouteId) {
+      fetchRouteStops(Number.parseInt(selectedRouteId))
+    } else {
+      setRouteStops([])
+      setBusTimes([{ route_stop_id: "", scheduled_departure_time: "", scheduled_arrival_time: "" }])
+    }
+  }, [selectedRouteId])
+
   const fetchData = async () => {
     try {
-      const [routesRes, busesRes, driversRes] = await Promise.all([
+      const [routesRes, busesRes, usersRes] = await Promise.all([
         fetch("/api/routes"),
         fetch("/api/buses"),
-        fetch("/api/drivers"),
+        fetch("/api/users?role=driver"), // Fetch only drivers
       ])
 
       const routesData = await routesRes.json()
       const busesData = await busesRes.json()
-      const driversData = await driversRes.json()
+      const driversData = await usersRes.json()
 
       setRoutes(routesData)
       setBuses(busesData)
@@ -76,12 +100,41 @@ export default function NewSchedulePage() {
     }
   }
 
+  const fetchRouteStops = async (routeId: number) => {
+    try {
+      const response = await fetch(`/api/routes/${routeId}/stops`)
+      const data = await response.json()
+      setRouteStops(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load route stops",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleDayChange = (day: string, checked: boolean) => {
     if (checked) {
       setSelectedDays([...selectedDays, day])
     } else {
       setSelectedDays(selectedDays.filter((d) => d !== day))
     }
+  }
+
+  const addBusTime = () => {
+    setBusTimes([...busTimes, { route_stop_id: "", scheduled_departure_time: "", scheduled_arrival_time: "" }])
+  }
+
+  const removeBusTime = (index: number) => {
+    setBusTimes(busTimes.filter((_, i) => i !== index))
+  }
+
+  const updateBusTime = (index: number, field: string, value: string) => {
+    const newBusTimes = [...busTimes]
+    // @ts-ignore
+    newBusTimes[index][field] = value
+    setBusTimes(newBusTimes)
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -92,11 +145,15 @@ export default function NewSchedulePage() {
     const data = {
       route_id: Number.parseInt(formData.get("route_id") as string),
       bus_id: Number.parseInt(formData.get("bus_id") as string),
-      driver_id: Number.parseInt(formData.get("driver_id") as string),
-      departure_time: formData.get("departure_time") as string,
-      arrival_time: formData.get("arrival_time") as string,
-      days_of_week: JSON.stringify(selectedDays),
-      status: formData.get("status") as string,
+      driver_user_id: Number.parseInt(formData.get("driver_user_id") as string),
+      type_of_schedule: scheduleType,
+      start_date: formData.get("start_date") || null,
+      end_date: formData.get("end_date") || null,
+      days_of_week: scheduleType === "weekly" ? selectedDays : null,
+      is_active: formData.get("is_active") === "on",
+      bus_times: busTimes.filter(
+        (bt) => bt.route_stop_id && bt.scheduled_departure_time && bt.scheduled_arrival_time,
+      ),
     }
 
     try {
@@ -150,49 +207,21 @@ export default function NewSchedulePage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="route_id">Route</Label>
-                <Select name="route_id" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select route" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {routes.map((route) => (
-                      <SelectItem key={route.id} value={route.id.toString()}>
-                        {route.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bus_id">Bus</Label>
-                <Select name="bus_id" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select bus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {buses.map((bus) => (
-                      <SelectItem key={bus.id} value={bus.id.toString()}>
-                        {bus.bus_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="space-y-2">
-              <Label htmlFor="driver_id">Driver</Label>
-              <Select name="driver_id" required>
+              <Label htmlFor="route_id">Route</Label>
+              <Select
+                name="route_id"
+                required
+                value={selectedRouteId}
+                onValueChange={setSelectedRouteId}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select driver" />
+                  <SelectValue placeholder="Select route" />
                 </SelectTrigger>
                 <SelectContent>
-                  {drivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id.toString()}>
-                      {driver.name}
+                  {routes.map((route) => (
+                    <SelectItem key={route.route_id} value={route.route_id.toString()}>
+                      {route.route_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -201,45 +230,157 @@ export default function NewSchedulePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="departure_time">Departure Time</Label>
-                <Input id="departure_time" name="departure_time" type="time" required />
+                <Label htmlFor="bus_id">Bus</Label>
+                <Select name="bus_id" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select bus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {buses.map((bus) => (
+                      <SelectItem key={bus.bus_id} value={bus.bus_id.toString()}>
+                        {bus.bus_number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="arrival_time">Arrival Time</Label>
-                <Input id="arrival_time" name="arrival_time" type="time" required />
+                <Label htmlFor="driver_user_id">Driver</Label>
+                <Select name="driver_user_id" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select driver" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {drivers.map((driver) => (
+                      <SelectItem key={driver.user_id} value={driver.user_id.toString()}>
+                        {driver.first_name} {driver.last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Days of Week</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {daysOfWeek.map((day) => (
-                  <div key={day.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={day.id}
-                      checked={selectedDays.includes(day.id)}
-                      onCheckedChange={(checked) => handleDayChange(day.id, checked as boolean)}
-                    />
-                    <Label htmlFor={day.id} className="text-sm">
-                      {day.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select name="status" defaultValue="active">
+              <Label htmlFor="type_of_schedule">Type of Schedule</Label>
+              <Select
+                name="type_of_schedule"
+                value={scheduleType}
+                onValueChange={(value: "weekly" | "daily" | "semester") => setScheduleType(value)}
+                required
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder="Select schedule type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="semester">Semester</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {(scheduleType === "daily" || scheduleType === "semester") && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_date">Start Date</Label>
+                  <Input id="start_date" name="start_date" type="date" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end_date">End Date</Label>
+                  <Input id="end_date" name="end_date" type="date" required />
+                </div>
+              </div>
+            )}
+
+            {scheduleType === "weekly" && (
+              <div className="space-y-2">
+                <Label>Days of Week</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {daysOfWeekOptions.map((day) => (
+                    <div key={day.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={day.id}
+                        checked={selectedDays.includes(day.id)}
+                        onCheckedChange={(checked) => handleDayChange(day.id, checked as boolean)}
+                      />
+                      <Label htmlFor={day.id} className="text-sm">
+                        {day.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Bus Times at Stops</Label>
+              {busTimes.map((bt, index) => (
+                <div key={index} className="flex flex-col gap-2 border p-3 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">Stop {index + 1} Time</h4>
+                    {busTimes.length > 1 && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => removeBusTime(index)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`route_stop_id-${index}`}>Route Stop</Label>
+                    <Select
+                      value={bt.route_stop_id}
+                      onValueChange={(value) => updateBusTime(index, "route_stop_id", value)}
+                      required
+                      disabled={routeStops.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select stop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {routeStops.map((stop) => (
+                          <SelectItem key={stop.route_stop_id} value={stop.route_stop_id.toString()}>
+                            {stop.stop_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor={`scheduled_departure_time-${index}`}>Departure Time</Label>
+                      <Input
+                        id={`scheduled_departure_time-${index}`}
+                        type="time"
+                        value={bt.scheduled_departure_time}
+                        onChange={(e) => updateBusTime(index, "scheduled_departure_time", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`scheduled_arrival_time-${index}`}>Arrival Time</Label>
+                      <Input
+                        id={`scheduled_arrival_time-${index}`}
+                        type="time"
+                        value={bt.scheduled_arrival_time}
+                        onChange={(e) => updateBusTime(index, "scheduled_arrival_time", e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <Button type="button" variant="outline" onClick={addBusTime} disabled={routeStops.length === 0}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Bus Time
+              </Button>
+              {routeStops.length === 0 && (
+                <p className="text-sm text-muted-foreground">Select a route first to add bus times.</p>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch id="is_active" name="is_active" defaultChecked />
+              <Label htmlFor="is_active">Active Schedule</Label>
             </div>
 
             <Button type="submit" disabled={loading}>

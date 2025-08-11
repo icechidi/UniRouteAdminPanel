@@ -20,26 +20,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Get user session
-  const user = await getSession()
-
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          {user ? (
-            // Authenticated layout with sidebar and header
-            <div className="flex h-screen bg-background">
-              <AppSidebar />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Header />
-                <main className="flex-1 overflow-auto">{children}</main>
-              </div>
-            </div>
-          ) : (
-            // Unauthenticated layout (login/setup page)
-            <div className="min-h-screen bg-background">{children}</div>
-          )}
+          {children}
           <Toaster />
         </ThemeProvider>
       </body>

@@ -1,15 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Users, Bus, Route, Calendar } from "lucide-react"
-import { getDashboardStats, getBuses, getDrivers } from "@/lib/db"
+import { Users, Bus, Route, Calendar, MessageSquare, Mail } from 'lucide-react'
+import { getDashboardStats, getBuses, getUsers, getMessages } from "@/lib/db"
 
 export default async function ReportsPage() {
   const stats = await getDashboardStats()
   const buses = await getBuses()
-  const drivers = await getDrivers()
+  const drivers = await getUsers("driver")
+  const feedbackMessages = await getMessages("feedback")
 
-  const activeDrivers = drivers.filter((d) => d.status === "active")
   const activeBuses = buses.filter((b) => b.status === "active")
 
   return (
@@ -21,14 +21,16 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Fleet Utilization</CardTitle>
             <Bus className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Math.round((activeBuses.length / buses.length) * 100)}%</div>
+            <div className="text-2xl font-bold">
+              {buses.length > 0 ? Math.round((activeBuses.length / buses.length) * 100) : 0}%
+            </div>
             <p className="text-xs text-muted-foreground">
               {activeBuses.length} of {buses.length} buses active
             </p>
@@ -37,20 +39,18 @@ export default async function ReportsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Driver Availability</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Drivers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Math.round((activeDrivers.length / drivers.length) * 100)}%</div>
-            <p className="text-xs text-muted-foreground">
-              {activeDrivers.length} of {drivers.length} drivers available
-            </p>
+            <div className="text-2xl font-bold">{stats.drivers}</div>
+            <p className="text-xs text-muted-foreground">Licensed drivers</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Route Coverage</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Routes</CardTitle>
             <Route className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -61,12 +61,23 @@ export default async function ReportsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Daily Schedules</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Schedules</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.schedules}</div>
-            <p className="text-xs text-muted-foreground">Scheduled trips today</p>
+            <p className="text-xs text-muted-foreground">Currently active schedules</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Feedback</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.feedback}</div>
+            <p className="text-xs text-muted-foreground">Unread feedback messages</p>
           </CardContent>
         </Card>
       </div>
@@ -88,7 +99,7 @@ export default async function ReportsPage() {
               </TableHeader>
               <TableBody>
                 {buses.slice(0, 5).map((bus) => (
-                  <TableRow key={bus.id}>
+                  <TableRow key={bus.bus_id}>
                     <TableCell className="font-medium">{bus.bus_number}</TableCell>
                     <TableCell>
                       <Badge variant={bus.status === "active" ? "default" : "secondary"}>{bus.status}</Badge>
@@ -103,28 +114,33 @@ export default async function ReportsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Driver Performance</CardTitle>
-            <CardDescription>Top performing drivers</CardDescription>
+            <CardTitle>Recent Feedback</CardTitle>
+            <CardDescription>Latest feedback messages from users</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Driver</TableHead>
-                  <TableHead>Experience</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Message</TableHead>
+                  <TableHead>Received At</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {drivers.slice(0, 5).map((driver) => (
-                  <TableRow key={driver.id}>
-                    <TableCell className="font-medium">{driver.name}</TableCell>
-                    <TableCell>{driver.experience_years} years</TableCell>
-                    <TableCell>
-                      <Badge variant={driver.status === "active" ? "default" : "secondary"}>{driver.status}</Badge>
+                {feedbackMessages.slice(0, 5).map((message) => (
+                  <TableRow key={message.message_id}>
+                    <TableCell className="font-medium max-w-[200px] truncate">
+                      {message.message_text}
                     </TableCell>
+                    <TableCell>{new Date(message.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
+                {feedbackMessages.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-center text-muted-foreground">
+                      No feedback yet.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
