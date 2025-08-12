@@ -105,27 +105,28 @@ export default function NewUserPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" asChild>
-          <Link href={preselectedRole === "driver" ? "/drivers" : "/users"}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Add New User</h2>
-          <p className="text-muted-foreground">Create a new system user</p>
+    <div className="relative h-[90vh] p-6">
+      <div className="overflow-y-auto h-full space-y-6 pr-2">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={preselectedRole === "driver" ? "/drivers" : "/users"}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Add New User</h2>
+            <p className="text-muted-foreground">Create a new system user</p>
+          </div>
         </div>
-      </div>
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>User Information</CardTitle>
-          <CardDescription>Enter the details for the new user.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle>User Information</CardTitle>
+            <CardDescription>Enter the details for the new user.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="first_name">First Name</Label>
@@ -203,6 +204,7 @@ export default function NewUserPage() {
           </form>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
