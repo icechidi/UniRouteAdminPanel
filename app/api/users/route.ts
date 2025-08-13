@@ -15,20 +15,24 @@ export async function GET(request: NextRequest) {
     let users
 
     if (roleName) {
-      users = await sql`
+      const selectQuery = `
         SELECT u.user_id, u.first_name, u.last_name, u.username, u.email, u.phone, u.country, u.photo_url, u.language_pref, u.unique_id, u.created_at, r.name as role_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
-        WHERE r.name = ${roleName}
+        WHERE r.name = $1
         ORDER BY u.created_at DESC
-      `
+      `;
+      const result = await sql.query(selectQuery, [roleName]);
+      users = result.rows;
     } else {
-      users = await sql`
+      const selectQuery = `
         SELECT u.user_id, u.first_name, u.last_name, u.username, u.email, u.phone, u.country, u.photo_url, u.language_pref, u.unique_id, u.created_at, r.name as role_name
         FROM users u
         JOIN roles r ON u.role_id = r.role_id
         ORDER BY u.created_at DESC
-      `
+      `;
+      const result = await sql.query(selectQuery);
+      users = result.rows;
     }
 
     return NextResponse.json(users)
