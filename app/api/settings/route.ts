@@ -7,11 +7,10 @@ export async function GET() {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
 
-    const sql = getSql()
-    const settings = await sql`
-      SELECT * FROM settings ORDER BY key
-    `
-    return NextResponse.json(settings)
+  const sql = getSql()
+  const selectQuery = `SELECT * FROM settings ORDER BY key`;
+  const result = await sql.query(selectQuery);
+  return NextResponse.json(result.rows)
   } catch (error) {
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 })
   }
@@ -28,12 +27,13 @@ export async function PUT(request: NextRequest) {
 
     // Update each setting
     for (const [key, value] of Object.entries(body)) {
-      await sql`
+      const upsertQuery = `
         INSERT INTO settings (key, value, updated_at)
-        VALUES (${key}, ${value as string}, CURRENT_TIMESTAMP)
-        ON CONFLICT (key) 
-        DO UPDATE SET value = ${value as string}, updated_at = CURRENT_TIMESTAMP
-      `
+        VALUES ($1, $2, CURRENT_TIMESTAMP)
+        ON CONFLICT (key)
+        DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      `;
+      await sql.query(upsertQuery, [key, value as string]);
     }
 
     return NextResponse.json({ success: true })
