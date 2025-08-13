@@ -34,13 +34,12 @@ export async function POST(request: NextRequest) {
     const { message_text, category } = body
 
     const sql = getSql()
-    const result = await sql`
-      INSERT INTO messages (message_text, category)
-      VALUES (${message_text}, ${category})
-      RETURNING *
-    `
+    const result = await sql.query(
+      "INSERT INTO messages (message_text, category) VALUES ($1, $2) RETURNING *",
+      [message_text, category]
+    )
 
-    return NextResponse.json(result[0], { status: 201 })
+    return NextResponse.json(result.rows[0], { status: 201 })
   } catch (error) {
     console.error("Failed to create message:", error)
     return NextResponse.json({ error: "Failed to create message" }, { status: 500 })
