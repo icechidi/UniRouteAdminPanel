@@ -14,18 +14,20 @@ export async function GET(request: NextRequest) {
     let busTimes
 
     if (scheduleId) {
-      busTimes = await sql`
+      const selectQuery = `
         SELECT bt.*, rs.stop_name, r.route_name, b.bus_number
         FROM bus_times bt
         JOIN route_stops rs ON bt.route_stop_id = rs.route_stop_id
         JOIN schedules s ON bt.schedule_id = s.schedule_id
         JOIN routes r ON s.route_id = r.route_id
         JOIN buses b ON s.bus_id = b.bus_id
-        WHERE bt.schedule_id = ${Number.parseInt(scheduleId)}
+        WHERE bt.schedule_id = $1
         ORDER BY bt.scheduled_departure_time
-      `
+      `;
+      const result = await sql.query(selectQuery, [Number.parseInt(scheduleId)]);
+      busTimes = result.rows;
     } else {
-      busTimes = await sql`
+      const selectQuery = `
         SELECT bt.*, rs.stop_name, r.route_name, b.bus_number
         FROM bus_times bt
         JOIN route_stops rs ON bt.route_stop_id = rs.route_stop_id
@@ -33,7 +35,9 @@ export async function GET(request: NextRequest) {
         JOIN routes r ON s.route_id = r.route_id
         JOIN buses b ON s.bus_id = b.bus_id
         ORDER BY bt.created_at DESC
-      `
+      `;
+      const result = await sql.query(selectQuery);
+      busTimes = result.rows;
     }
 
     return NextResponse.json(busTimes)
