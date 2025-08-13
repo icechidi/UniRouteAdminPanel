@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -185,28 +183,41 @@ export default function NewSchedulePage() {
     }
   }
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/schedules">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
-        </Button>
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Add New Schedule</h2>
-          <p className="text-muted-foreground">Create a new bus schedule</p>
-        </div>
-      </div>
+  // Scroll helpers
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const scrollToTop = () => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
+    }
+  }
 
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle>Schedule Information</CardTitle>
-          <CardDescription>Enter the details for the new schedule.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
+  return (
+    <div className="relative h-[90vh] p-6">
+      {/* Scrollable content */}
+      <div ref={scrollRef} className="overflow-y-auto h-full space-y-6 pr-2">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/schedules">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">Add New Schedule</h2>
+            <p className="text-muted-foreground">Create a new bus schedule</p>
+          </div>
+        </div>
+
+        <Card className="max-w-2xl">
+          <CardHeader>
+            <CardTitle>Schedule Information</CardTitle>
+            <CardDescription>Enter the details for the new schedule.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="route_id">Route</Label>
               <Select
@@ -389,6 +400,16 @@ export default function NewSchedulePage() {
           </form>
         </CardContent>
       </Card>
+      </div>
+      {/* Scroll buttons */}
+      <div className="fixed bottom-8 right-8 flex flex-col gap-2 z-50">
+        <Button variant="secondary" size="icon" onClick={scrollToTop} aria-label="Scroll to top">
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 15l7-7 7 7"/></svg>
+        </Button>
+        <Button variant="secondary" size="icon" onClick={scrollToBottom} aria-label="Scroll to bottom">
+          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+        </Button>
+      </div>
     </div>
   )
 }
