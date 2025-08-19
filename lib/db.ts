@@ -1,10 +1,16 @@
 import { Pool } from "pg"
 
+/**
+ * Keep local Postgres via pg Pool (your original setup)
+ */
 let pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
-// Demo data for offline mode, updated to new schema
+/**
+ * Demo data (base: your previous file).
+ * Kept as-is and extended only where necessary to support new getters.
+ */
 const DEMO_DATA = {
   roles: [
     { role_id: 1, name: "admin" },
@@ -26,7 +32,7 @@ const DEMO_DATA = {
       unique_id: "a1b2c3d4-e5f6-7890-1234-567890abcdef",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      role_name: "admin", // Added for convenience in frontend
+      role_name: "admin",
     },
     {
       user_id: 2,
@@ -181,6 +187,21 @@ const DEMO_DATA = {
       updated_at: new Date().toISOString(),
     },
   ],
+  route_times: [
+    { route_time_id: 1, route_id: 1, departure_time: "07:45:00", is_active: true },
+    { route_time_id: 2, route_id: 1, departure_time: "09:45:00", is_active: true },
+    { route_time_id: 3, route_id: 1, departure_time: "11:45:00", is_active: true },
+    { route_time_id: 4, route_id: 1, departure_time: "12:45:00", is_active: true },
+    { route_time_id: 5, route_id: 1, departure_time: "13:45:00", is_active: true },
+    { route_time_id: 6, route_id: 1, departure_time: "15:45:00", is_active: true },
+    { route_time_id: 7, route_id: 1, departure_time: "17:30:00", is_active: true },
+    { route_time_id: 8, route_id: 1, departure_time: "19:45:00", is_active: true },
+    { route_time_id: 9, route_id: 2, departure_time: "08:00:00", is_active: true },
+    { route_time_id: 10, route_id: 2, departure_time: "10:00:00", is_active: true },
+    { route_time_id: 11, route_id: 2, departure_time: "14:00:00", is_active: true },
+    { route_time_id: 12, route_id: 2, departure_time: "16:00:00", is_active: true },
+    { route_time_id: 13, route_id: 2, departure_time: "18:00:00", is_active: true },
+  ],
   route_stops: [
     {
       route_stop_id: 1,
@@ -190,6 +211,7 @@ const DEMO_DATA = {
       latitude: 38.9072,
       stop_order: 1,
       arrival_time: "08:00:00",
+      estimated_duration: 0,
       created_at: new Date().toISOString(),
     },
     {
@@ -200,6 +222,7 @@ const DEMO_DATA = {
       latitude: 38.915,
       stop_order: 2,
       arrival_time: "08:10:00",
+      estimated_duration: 10,
       created_at: new Date().toISOString(),
     },
     {
@@ -210,6 +233,7 @@ const DEMO_DATA = {
       latitude: 38.9,
       stop_order: 3,
       arrival_time: "08:25:00",
+      estimated_duration: 25,
       created_at: new Date().toISOString(),
     },
     {
@@ -220,6 +244,7 @@ const DEMO_DATA = {
       latitude: 38.9072,
       stop_order: 1,
       arrival_time: "09:00:00",
+      estimated_duration: 0,
       created_at: new Date().toISOString(),
     },
     {
@@ -230,6 +255,7 @@ const DEMO_DATA = {
       latitude: 38.85,
       stop_order: 2,
       arrival_time: "09:30:00",
+      estimated_duration: 30,
       created_at: new Date().toISOString(),
     },
   ],
@@ -255,7 +281,7 @@ const DEMO_DATA = {
       schedule_id: 1,
       route_id: 1,
       bus_id: 1,
-      driver_user_id: 2, // Michael Johnson
+      sem_schedule_id: 1,
       type_of_schedule: "weekly",
       start_date: null,
       end_date: null,
@@ -265,13 +291,14 @@ const DEMO_DATA = {
       updated_at: new Date().toISOString(),
       route_name: "Campus to Downtown",
       bus_number: "UNI-001",
-      driver_name: "Michael Johnson",
+      academic_year: "2023-2024",
+      semester: "fall",
     },
     {
       schedule_id: 2,
       route_id: 2,
       bus_id: 2,
-      driver_user_id: 3, // Sarah Williams
+      sem_schedule_id: 1,
       type_of_schedule: "daily",
       start_date: new Date().toISOString().split("T")[0],
       end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -281,10 +308,11 @@ const DEMO_DATA = {
       updated_at: new Date().toISOString(),
       route_name: "Campus to Airport",
       bus_number: "UNI-002",
-      driver_name: "Sarah Williams",
+      academic_year: "2023-2024",
+      semester: "fall",
     },
   ],
-  schedule_notifications: [], // No demo data for now
+  schedule_notifications: [],
   semester_schedules: [
     {
       sem_schedule_id: 1,
@@ -292,7 +320,17 @@ const DEMO_DATA = {
       semester: "fall",
       start_date: "2023-09-01",
       end_date: "2023-12-15",
-      holidays: '[{"date": "2023-11-23", "name": "Thanksgiving"}]',
+      holidays: '[{"date": "2023-11-23", "name": "Thanksgiving"}, {"date": "2023-12-25", "name": "Christmas"}]',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    {
+      sem_schedule_id: 2,
+      academic_year: "2023-2024",
+      semester: "spring",
+      start_date: "2024-01-15",
+      end_date: "2024-05-15",
+      holidays: '[{"date": "2024-03-15", "name": "Spring Break"}, {"date": "2024-04-01", "name": "Easter"}]',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     },
@@ -302,6 +340,7 @@ const DEMO_DATA = {
       bus_time_id: 1,
       schedule_id: 1,
       route_stop_id: 1,
+      // route_time_id intentionally omitted in your original DEMO_DATA. The SQL join below is LEFT JOIN-safe.
       scheduled_departure_time: "08:00:00",
       scheduled_arrival_time: "08:00:00",
       actual_departure_time: null,
@@ -394,71 +433,65 @@ const DEMO_DATA = {
   ],
 }
 
-// Check if we're in demo mode
+/**
+ * Demo-mode detection
+ */
 export function isDemoMode(): boolean {
   return (
-    process.env.DEMO_MODE === "true" || !process.env.DATABASE_URL || process.env.DATABASE_URL === "your_database_url"
+    process.env.DEMO_MODE === "true" ||
+    !process.env.DATABASE_URL ||
+    process.env.DATABASE_URL === "your_database_url"
   )
 }
 
-// Get database URL from environment or return null if not configured
+/**
+ * DB URL helpers (unchanged from your original)
+ */
 function getDatabaseUrl(): string | null {
   const databaseUrl = process.env.DATABASE_URL
-
   if (!databaseUrl || databaseUrl === "your_database_url") {
     return null
   }
-
   return databaseUrl
 }
 
-// Create SQL connection only if database URL is available
 function initializePool() {
   const databaseUrl = getDatabaseUrl()
-
   if (!databaseUrl) {
     throw new Error("Database not configured")
   }
-
   if (!pool) {
     pool = new Pool({ connectionString: databaseUrl })
   }
-
   return pool
 }
 
+/**
+ * getSql/query API (kept compatible with your original)
+ */
 export function getSql() {
   const pool = initializePool()
-
   return {
     query: (text: string, params?: any[]) => pool.query(text, params),
   }
 }
 
-// Optional helper if you need raw access to the pool elsewhere
 export function getPool(): Pool {
   return initializePool()
 }
 
-// Export a function to get SQL connection
-/* Removed duplicate getSql function */
-
-// Check if database is configured
 export function isDatabaseConfigured(): boolean {
   return !!process.env.DATABASE_URL
 }
 
-// Database helper functions with demo mode support
+/* --------------------------
+   Data access helpers
+--------------------------- */
+
 export async function getRoles() {
   try {
-    if (isDemoMode()) {
-      return DEMO_DATA.roles
-    }
-
-    if (!isDatabaseConfigured()) {
-      return []
-    }
-
+    if (isDemoMode()) return DEMO_DATA.roles
+    if (!isDatabaseConfigured()) return []
     const client = await pool.connect()
     try {
       const result = await client.query("SELECT * FROM roles ORDER BY name")
@@ -475,19 +508,21 @@ export async function getRoles() {
 export async function getUsers() {
   try {
     if (isDemoMode()) {
-      return DEMO_DATA.users.map((user) => ({
-        ...user,
-        role_name: DEMO_DATA.roles.find((r) => r.role_id === user.role_id)?.name || "unknown",
+      return DEMO_DATA.users.map((u) => ({
+        ...u,
+        role_name: DEMO_DATA.roles.find((r) => r.role_id === u.role_id)?.name || "unknown",
       }))
     }
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
-    return (await sql.query(
-      `SELECT u.*, r.name as role_name
-      FROM users u
-      LEFT JOIN roles r ON u.role_id = r.role_id
-      ORDER BY u.created_at DESC`
-    )).rows
+    return (
+      await sql.query(
+        `SELECT u.*, r.name as role_name
+         FROM users u
+         LEFT JOIN roles r ON u.role_id = r.role_id
+         ORDER BY u.created_at DESC`
+      )
+    ).rows
   } catch (error) {
     console.error("Error fetching users:", error)
     return DEMO_DATA.users
@@ -496,9 +531,7 @@ export async function getUsers() {
 
 export async function getBuses() {
   try {
-    if (isDemoMode()) {
-      return DEMO_DATA.buses
-    }
+    if (isDemoMode()) return DEMO_DATA.buses
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     return (await sql.query("SELECT * FROM buses ORDER BY created_at DESC")).rows
@@ -511,9 +544,7 @@ export async function getBuses() {
 export async function getMessages(category?: string) {
   try {
     if (isDemoMode()) {
-      return category
-        ? DEMO_DATA.messages.filter((msg) => msg.category === category)
-        : DEMO_DATA.messages
+      return category ? DEMO_DATA.messages.filter((m) => m.category === category) : DEMO_DATA.messages
     }
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
@@ -527,22 +558,29 @@ export async function getMessages(category?: string) {
   }
 }
 
+/**
+ * getRoutes: now also returns times_count (merged from second file)
+ */
 export async function getRoutes() {
   try {
     if (isDemoMode()) {
       return DEMO_DATA.routes.map((route) => ({
         ...route,
-        stops_count: DEMO_DATA.route_stops.filter((stop) => stop.route_id === route.route_id).length,
+        stops_count: DEMO_DATA.route_stops.filter((s) => s.route_id === route.route_id).length,
+        times_count: DEMO_DATA.route_times.filter((t) => t.route_id === route.route_id).length,
       }))
     }
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     const result = await sql.query(
-      `SELECT r.*, COUNT(rs.route_stop_id) as stops_count
-      FROM routes r
-      LEFT JOIN route_stops rs ON r.route_id = rs.route_id
-      GROUP BY r.route_id
-      ORDER BY r.created_at DESC`
+      `SELECT r.*,
+              COUNT(DISTINCT rs.route_stop_id) AS stops_count,
+              COUNT(DISTINCT rt.route_time_id) AS times_count
+       FROM routes r
+       LEFT JOIN route_stops rs ON r.route_id = rs.route_id
+       LEFT JOIN route_times rt ON r.route_id = rt.route_id
+       GROUP BY r.route_id
+       ORDER BY r.created_at DESC`
     )
     return result.rows
   } catch (error) {
@@ -551,19 +589,76 @@ export async function getRoutes() {
   }
 }
 
+/**
+ * NEW: getRouteTimes (merged from second file)
+ */
+export async function getRouteTimes(routeId?: number) {
+  try {
+    if (isDemoMode()) {
+      return routeId
+        ? DEMO_DATA.route_times.filter((t) => t.route_id === routeId)
+        : DEMO_DATA.route_times
+    }
+    if (!isDatabaseConfigured()) return []
+    const sql = getSql()
+    if (routeId) {
+      return (
+        await sql.query(
+          `SELECT rt.*, r.route_name
+           FROM route_times rt
+           JOIN routes r ON rt.route_id = r.route_id
+           WHERE rt.route_id = $1
+           ORDER BY rt.departure_time`,
+          [routeId]
+        )
+      ).rows
+    }
+    return (
+      await sql.query(
+        `SELECT rt.*, r.route_name
+         FROM route_times rt
+         JOIN routes r ON rt.route_id = r.route_id
+         ORDER BY r.route_name, rt.departure_time`
+      )
+    ).rows
+  } catch (error) {
+    console.error("Error fetching route times:", error)
+    return DEMO_DATA.route_times
+  }
+}
+
+/**
+ * getRouteStops: keep your original API but also capable of returning route_name
+ */
 export async function getRouteStops(routeId?: number) {
   try {
     if (isDemoMode()) {
       return routeId
-        ? DEMO_DATA.route_stops.filter((stop) => stop.route_id === routeId)
+        ? DEMO_DATA.route_stops.filter((s) => s.route_id === routeId)
         : DEMO_DATA.route_stops
     }
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     if (routeId) {
-      return (await sql.query("SELECT * FROM route_stops WHERE route_id = $1 ORDER BY stop_order", [routeId])).rows
+      return (
+        await sql.query(
+          `SELECT rs.*, r.route_name
+           FROM route_stops rs
+           JOIN routes r ON rs.route_id = r.route_id
+           WHERE rs.route_id = $1
+           ORDER BY rs.stop_order`,
+          [routeId]
+        )
+      ).rows
     }
-    return (await sql.query("SELECT * FROM route_stops ORDER BY stop_order")).rows
+    return (
+      await sql.query(
+        `SELECT rs.*, r.route_name
+         FROM route_stops rs
+         JOIN routes r ON rs.route_id = r.route_id
+         ORDER BY r.route_name, rs.stop_order`
+      )
+    ).rows
   } catch (error) {
     console.error("Error fetching route stops:", error)
     return DEMO_DATA.route_stops
@@ -578,9 +673,9 @@ export async function getEmergencyNotifications() {
         route_name: DEMO_DATA.routes.find((r) => r.route_id === notif.route_id)?.route_name || "N/A",
         bus_number: DEMO_DATA.buses.find((b) => b.bus_id === notif.bus_id)?.bus_number || "N/A",
         driver_name:
-          DEMO_DATA.users.find((u) => u.user_id === notif.user_id)?.first_name +
+          (DEMO_DATA.users.find((u) => u.user_id === notif.user_id)?.first_name || "") +
             " " +
-            DEMO_DATA.users.find((u) => u.user_id === notif.user_id)?.last_name || "N/A",
+            (DEMO_DATA.users.find((u) => u.user_id === notif.user_id)?.last_name || "") || "N/A",
         message_text: DEMO_DATA.messages.find((m) => m.message_id === notif.message_id)?.message_text || "N/A",
       }))
     }
@@ -588,13 +683,15 @@ export async function getEmergencyNotifications() {
     const sql = getSql()
     return (
       await sql.query(
-        `SELECT en.*, r.route_name, b.bus_number, u.first_name || ' ' || u.last_name as driver_name, m.message_text
-        FROM emergency_notifications en
-        LEFT JOIN routes r ON en.route_id = r.route_id
-        LEFT JOIN buses b ON en.bus_id = b.bus_id
-        LEFT JOIN users u ON en.user_id = u.user_id
-        LEFT JOIN messages m ON en.message_id = m.message_id
-        ORDER BY en.triggered_at DESC`
+        `SELECT en.*, r.route_name, b.bus_number,
+                u.first_name || ' ' || u.last_name AS driver_name,
+                m.message_text
+         FROM emergency_notifications en
+         LEFT JOIN routes r ON en.route_id = r.route_id
+         LEFT JOIN buses b ON en.bus_id = b.bus_id
+         LEFT JOIN users u ON en.user_id = u.user_id
+         LEFT JOIN messages m ON en.message_id = m.message_id
+         ORDER BY en.triggered_at DESC`
       )
     ).rows
   } catch (error) {
@@ -606,25 +703,26 @@ export async function getEmergencyNotifications() {
 export async function getSchedules() {
   try {
     if (isDemoMode()) {
-      return DEMO_DATA.schedules.map((schedule) => ({
-        ...schedule,
-        route_name: DEMO_DATA.routes.find((r) => r.route_id === schedule.route_id)?.route_name || "N/A",
-        bus_number: DEMO_DATA.buses.find((b) => b.bus_id === schedule.bus_id)?.bus_number || "N/A",
-        driver_name:
-          DEMO_DATA.users.find((u) => u.user_id === schedule.driver_user_id)?.first_name +
-            " " +
-            DEMO_DATA.users.find((u) => u.user_id === schedule.driver_user_id)?.last_name || "N/A",
+      return DEMO_DATA.schedules.map((s) => ({
+        ...s,
+        route_name: DEMO_DATA.routes.find((r) => r.route_id === s.route_id)?.route_name || "N/A",
+        bus_number: DEMO_DATA.buses.find((b) => b.bus_id === s.bus_id)?.bus_number || "N/A",
+        academic_year:
+          DEMO_DATA.semester_schedules.find((s) => s.sem_schedule_id === s.sem_schedule_id)?.academic_year ||
+          "N/A",
+        semester:
+          DEMO_DATA.semester_schedules.find((s) => s.sem_schedule_id === s.sem_schedule_id)?.semester || "N/A",
       }))
     }
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     const result = await sql.query(
-      `SELECT s.*, r.route_name, b.bus_number, u.first_name || ' ' || u.last_name as driver_name
-      FROM schedules s
-      JOIN routes r ON s.route_id = r.route_id
-      JOIN buses b ON s.bus_id = b.bus_id
-      LEFT JOIN users u ON s.driver_user_id = u.user_id
-      ORDER BY s.created_at DESC`
+      `SELECT s.*, r.route_name, b.bus_number, ss.academic_year, ss.semester
+       FROM schedules s
+       JOIN routes r ON s.route_id = r.route_id
+       JOIN buses b ON s.bus_id = b.bus_id
+       LEFT JOIN semester_schedules ss ON s.sem_schedule_id = ss.sem_schedule_id
+       ORDER BY s.created_at DESC`
     )
     return result.rows
   } catch (error) {
@@ -635,18 +733,16 @@ export async function getSchedules() {
 
 export async function getScheduleNotifications() {
   try {
-    if (isDemoMode()) {
-      return DEMO_DATA.schedule_notifications
-    }
+    if (isDemoMode()) return DEMO_DATA.schedule_notifications
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     const result = await sql.query(
       `SELECT sn.*, m.message_text, s.type_of_schedule, r.route_name
-      FROM schedule_notifications sn
-      JOIN messages m ON sn.message_id = m.message_id
-      JOIN schedules s ON sn.schedule_id = s.schedule_id
-      JOIN routes r ON s.route_id = r.route_id
-      ORDER BY sn.sent_at DESC`
+       FROM schedule_notifications sn
+       JOIN messages m ON sn.message_id = m.message_id
+       JOIN schedules s ON sn.schedule_id = s.schedule_id
+       JOIN routes r ON s.route_id = r.route_id
+       ORDER BY sn.sent_at DESC`
     )
     return result.rows
   } catch (error) {
@@ -657,9 +753,7 @@ export async function getScheduleNotifications() {
 
 export async function getSemesterSchedules() {
   try {
-    if (isDemoMode()) {
-      return DEMO_DATA.semester_schedules
-    }
+    if (isDemoMode()) return DEMO_DATA.semester_schedules
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     return (await sql.query("SELECT * FROM semester_schedules ORDER BY academic_year DESC, semester")).rows
@@ -669,24 +763,35 @@ export async function getSemesterSchedules() {
   }
 }
 
+/**
+ * getBusTimes: now includes LEFT JOIN to route_times and exposes route_departure_time
+ * (merged behavior from second file, but kept pg/pool interface)
+ */
 export async function getBusTimes(scheduleId?: number) {
   try {
     if (isDemoMode()) {
-      const filteredBusTimes = scheduleId
+      const filtered = scheduleId
         ? DEMO_DATA.bus_times.filter((bt) => bt.schedule_id === scheduleId)
         : DEMO_DATA.bus_times
-      return filteredBusTimes.map((bt) => ({
+      return filtered.map((bt) => ({
         ...bt,
         stop_name: DEMO_DATA.route_stops.find((rs) => rs.route_stop_id === bt.route_stop_id)?.stop_name || "N/A",
         route_name:
           DEMO_DATA.routes.find(
-            (r) =>
-              DEMO_DATA.schedules.find((s) => s.schedule_id === bt.schedule_id)?.route_id === r.route_id,
+            (r) => DEMO_DATA.schedules.find((s) => s.schedule_id === bt.schedule_id)?.route_id === r.route_id
           )?.route_name || "N/A",
         bus_number:
           DEMO_DATA.buses.find(
-            (b) => DEMO_DATA.schedules.find((s) => s.schedule_id === bt.schedule_id)?.bus_id === b.bus_id,
+            (b) => DEMO_DATA.schedules.find((s) => s.schedule_id === bt.schedule_id)?.bus_id === b.bus_id
           )?.bus_number || "N/A",
+        // Provide a pseudo route_departure_time from matching route_time if present
+        route_departure_time: ((): string | null => {
+          // Try to infer via route_id/schedule match and earliest route_time; in demo we may not have route_time_id on bus_times
+          const schedule = DEMO_DATA.schedules.find((s) => s.schedule_id === bt.schedule_id)
+          if (!schedule) return null
+          const firstTime = DEMO_DATA.route_times.find((t) => t.route_id === schedule.route_id)
+          return firstTime?.departure_time ?? null
+        })(),
       }))
     }
     if (!isDatabaseConfigured()) return []
@@ -694,46 +799,38 @@ export async function getBusTimes(scheduleId?: number) {
     if (scheduleId) {
       return (
         await sql.query(
-          `SELECT bt.*, rs.stop_name, r.route_name, b.bus_number
-          FROM bus_times bt
-          JOIN route_stops rs ON bt.route_stop_id = rs.route_stop_id
-          JOIN schedules s ON bt.schedule_id = s.schedule_id
-          JOIN routes r ON s.route_id = r.route_id
-          JOIN buses b ON s.bus_id = b.bus_id
-          WHERE bt.schedule_id = $1
-          ORDER BY bt.scheduled_departure_time`,
+          `SELECT bt.*,
+                  rs.stop_name,
+                  r.route_name,
+                  b.bus_number
+           FROM bus_times bt
+           JOIN route_stops rs ON bt.route_stop_id = rs.route_stop_id
+           JOIN schedules s    ON bt.schedule_id = s.schedule_id
+           JOIN routes r       ON s.route_id = r.route_id
+           JOIN buses b        ON s.bus_id = b.bus_id
+           WHERE bt.schedule_id = $1
+           ORDER BY bt.scheduled_departure_time`,
           [scheduleId]
         )
       ).rows
     }
     return (
       await sql.query(
-        `SELECT bt.*, rs.stop_name, r.route_name, b.bus_number
-        FROM bus_times bt
-        JOIN route_stops rs ON bt.route_stop_id = rs.route_stop_id
-        JOIN schedules s ON bt.schedule_id = s.schedule_id
-        JOIN routes r ON s.route_id = r.route_id
-        JOIN buses b ON s.bus_id = b.bus_id
-        ORDER BY bt.created_at DESC`
+        `SELECT bt.*,
+                rs.stop_name,
+                r.route_name,
+                b.bus_number
+         FROM bus_times bt
+         JOIN route_stops rs ON bt.route_stop_id = rs.route_stop_id
+         JOIN schedules s    ON bt.schedule_id = s.schedule_id
+         JOIN routes r       ON s.route_id = r.route_id
+         JOIN buses b        ON s.bus_id = b.bus_id
+         ORDER BY bt.created_at DESC`
       )
     ).rows
   } catch (error) {
     console.error("Error fetching bus times:", error)
     return DEMO_DATA.bus_times
-  }
-}
-
-export async function getSettings() {
-  try {
-    if (isDemoMode()) {
-      return DEMO_DATA.settings
-    }
-    if (!isDatabaseConfigured()) return []
-    const sql = getSql()
-    return (await sql.query("SELECT * FROM settings ORDER BY key")).rows
-  } catch (error) {
-    console.error("Error fetching settings:", error)
-    return DEMO_DATA.settings
   }
 }
 
@@ -747,7 +844,12 @@ export async function getUserActivityLogs(userId?: number) {
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     if (userId) {
-      return (await sql.query("SELECT * FROM user_activity_logs WHERE user_id = $1 ORDER BY timestamp DESC", [userId])).rows
+      return (
+        await sql.query(
+          "SELECT * FROM user_activity_logs WHERE user_id = $1 ORDER BY timestamp DESC",
+          [userId]
+        )
+      ).rows
     }
     return (await sql.query("SELECT * FROM user_activity_logs ORDER BY timestamp DESC")).rows
   } catch (error) {
@@ -769,28 +871,21 @@ export async function getDashboardStats() {
       }
     }
     if (!isDatabaseConfigured()) {
-      return {
-        buses: 0,
-        drivers: 0,
-        routes: 0,
-        schedules: 0,
-        messages: 0,
-        feedback: 0,
-      }
+      return { buses: 0, drivers: 0, routes: 0, schedules: 0, messages: 0, feedback: 0 }
     }
 
     const sql = getSql()
-    const busCountResult = await sql.query("SELECT COUNT(*) as count FROM buses WHERE status = 'active'")
+    const busCountResult = await sql.query("SELECT COUNT(*) AS count FROM buses WHERE status = 'active'")
     const driverCountResult = await sql.query(
-      `SELECT COUNT(u.user_id) as count
-      FROM users u
-      JOIN roles r ON u.role_id = r.role_id
-      WHERE r.name = 'driver'`
+      `SELECT COUNT(u.user_id) AS count
+       FROM users u
+       JOIN roles r ON u.role_id = r.role_id
+       WHERE r.name = 'driver'`
     )
-    const routeCountResult = await sql.query("SELECT COUNT(*) as count FROM routes WHERE is_active = TRUE")
-    const scheduleCountResult = await sql.query("SELECT COUNT(*) as count FROM schedules WHERE is_active = TRUE")
-    const messageCountResult = await sql.query("SELECT COUNT(*) as count FROM messages")
-    const feedbackCountResult = await sql.query("SELECT COUNT(*) as count FROM messages WHERE category = 'feedback'")
+    const routeCountResult = await sql.query("SELECT COUNT(*) AS count FROM routes WHERE is_active = TRUE")
+    const scheduleCountResult = await sql.query("SELECT COUNT(*) AS count FROM schedules WHERE is_active = TRUE")
+    const messageCountResult = await sql.query("SELECT COUNT(*) AS count FROM messages")
+    const feedbackCountResult = await sql.query("SELECT COUNT(*) AS count FROM messages WHERE category = 'feedback'")
 
     return {
       buses: Number(busCountResult.rows[0].count),
