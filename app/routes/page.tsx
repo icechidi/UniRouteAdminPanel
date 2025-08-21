@@ -288,7 +288,7 @@ export default function RoutesPage() {
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className="px-6 py-1 text-ss min-w-[160px] flex justify-center items-center"
+                          className="px-6 py-1 text-ss min-w-[200px] flex justify-center items-center"
                         >
                           {route.route_name}
                         </Badge>
