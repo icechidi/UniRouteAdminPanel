@@ -8,9 +8,14 @@ export async function GET() {
     }
 
     const sql = getSql()
-    const semesterSchedules = await sql`
-      SELECT * FROM semester_schedules ORDER BY academic_year DESC, semester
-    `
+    const semesterSchedulesResult = await sql.query(
+      "SELECT * FROM semester_schedules ORDER BY academic_year DESC, semester"
+    )
+    // Parse holidays field for each row
+    const semesterSchedules = semesterSchedulesResult.rows.map(row => ({
+      ...row,
+      holidays: typeof row.holidays === "string" ? JSON.parse(row.holidays) : row.holidays
+    }))
     return NextResponse.json(semesterSchedules)
   } catch (error) {
     console.error("Failed to fetch semester schedules:", error)
@@ -23,26 +28,17 @@ export async function POST(request: NextRequest) {
     if (!isDatabaseConfigured()) {
       return NextResponse.json({ error: "Database not configured" }, { status: 503 })
     }
-
     const body = await request.json()
     const { academic_year, semester, start_date, end_date, holidays } = body
-
     const sql = getSql()
-    const result = await sql`
-      INSERT INTO semester_schedules (academic_year, semester, start_date, end_date, holidays)
-      VALUES (
-        ${academic_year},
-        ${semester},
-        ${start_date},
-        ${end_date},
-        ${holidays ? JSON.stringify(holidays) : null}::jsonb
-      )
-      RETURNING *
-    `
-
-    return NextResponse.json(result[0], { status: 201 })
+    const result = await sql.query(
+      "INSERT INTO semester_schedules (academic_year, semester, start_date, end_date, holidays) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [academic_year, semester, start_date, end_date, JSON.stringify(holidays)]
+    )
+    return NextResponse.json(result.rows[0], { status: 201 })
   } catch (error) {
     console.error("Failed to create semester schedule:", error)
     return NextResponse.json({ error: "Failed to create semester schedule" }, { status: 500 })
   }
 }
+
