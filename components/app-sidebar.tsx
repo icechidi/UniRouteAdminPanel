@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Bus, Calendar, Home, Route, Settings, Users, ChevronRight, ChevronLeft, ChevronDown, BookOpen, MessageSquare, Clock, GraduationCap, AlertTriangle, Activity } from 'lucide-react'
+import { Bus, Calendar, Home, Route, Settings, Users, ChevronRight, ChevronLeft, ChevronDown, BookOpen, MessageSquare, Clock, GraduationCap, AlertTriangle, Activity, Table } from 'lucide-react'
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ const menuItems = [
       { title: "Schedules", url: "/schedules", icon: Calendar },
       { title: "Bus Times", url: "/bus-times", icon: Clock },
       { title: "Semester Schedules", url: "/semester-schedules", icon: GraduationCap },
+      { title: "Route Stop Time Info", url: "/info-route-stop-time", icon: Table }, // <-- Add this line
     ],
   },
   {
