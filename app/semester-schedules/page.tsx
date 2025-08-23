@@ -52,19 +52,19 @@ export default async function SemesterSchedulesPage() {
                     </TableCell>
                     <TableCell>{new Date(semSchedule.start_date).toLocaleDateString()}</TableCell>
                     <TableCell>{new Date(semSchedule.end_date).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {semSchedule.holidays && JSON.parse(semSchedule.holidays).length > 0 ? (
-                        <ul className="list-disc list-inside text-sm text-muted-foreground">
-                          {JSON.parse(semSchedule.holidays).map((holiday: any, index: number) => (
-                            <li key={index}>
-                              {holiday.name} ({new Date(holiday.date).toLocaleDateString()})
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        "None"
-                      )}
-                    </TableCell>
+                      <TableCell>
+                        {semSchedule.holidays && semSchedule.holidays.length > 0 ? (
+                          <ul className="list-disc list-inside text-sm text-muted-foreground">
+                            {semSchedule.holidays.map((holiday: any, index: number) => (
+                              <li key={index}>
+                                {holiday.name} ({new Date(holiday.date).toLocaleDateString()})
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          "None"
+                        )}
+                      </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm">

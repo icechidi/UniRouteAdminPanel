@@ -507,12 +507,6 @@ export async function getRoles() {
 
 export async function getUsers() {
   try {
-    if (isDemoMode()) {
-      return DEMO_DATA.users.map((u) => ({
-        ...u,
-        role_name: DEMO_DATA.roles.find((r) => r.role_id === u.role_id)?.name || "unknown",
-      }))
-    }
     if (!isDatabaseConfigured()) return []
     const sql = getSql()
     return (
@@ -525,7 +519,7 @@ export async function getUsers() {
     ).rows
   } catch (error) {
     console.error("Error fetching users:", error)
-    return DEMO_DATA.users
+    return []
   }
 }
 

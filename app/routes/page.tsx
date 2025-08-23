@@ -299,8 +299,8 @@ export default function RoutesPage() {
                             times.map((time) => (
                               <span
                                 key={time.route_time_id}
-                                className="inline-flex items-center px-3 py-1 rounded-md bg-muted text-xs font-semibold border"
-                                style={{ background: time.is_active ? "#63709c" : "#f5f5f5" }}
+                                className="inline-flex items-center px-3 py-1 rounded-md bg-muted text-xs 
+                                font-semibold border bg-blue-50 bg-white/0 shadow-none"
                               >
                                 <Clock className="h-3 w-3 mr-1" />
                                 {time.departure_time}
