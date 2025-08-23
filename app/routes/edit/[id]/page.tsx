@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import DashboardLayout from "@/app/dashboard-layout"
 import Link from "next/link"
 
 export default function EditRoutePage({ params }: { params: { id: string } }) {
@@ -125,6 +126,7 @@ export default function EditRoutePage({ params }: { params: { id: string } }) {
   }
 
   return (
+    <DashboardLayout>
     <div className="relative h-[90vh] p-6">
       {/* Scrollable content */}
       <div ref={scrollRef} className="overflow-y-auto h-full space-y-6 pr-2">
@@ -250,5 +252,6 @@ export default function EditRoutePage({ params }: { params: { id: string } }) {
         </Button>
       </div>
     </div>
+    </DashboardLayout>
   )
 }

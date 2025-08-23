@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft } from 'lucide-react'
 import Link from "next/link"
+import DashboardLayout from "@/app/dashboard-layout"
 
 export default function NewBusPage() {
   const router = useRouter()
@@ -62,6 +63,7 @@ export default function NewBusPage() {
   }
 
   return (
+    <DashboardLayout>
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="sm" asChild>
@@ -132,5 +134,6 @@ export default function NewBusPage() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   )
 }
