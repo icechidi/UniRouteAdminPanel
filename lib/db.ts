@@ -434,7 +434,7 @@ const DEMO_DATA = {
 }
 
 /**
- * Demo-mode detection
+ * Demo-mode detection to be removed
  */
 export function isDemoMode(): boolean {
   return (
