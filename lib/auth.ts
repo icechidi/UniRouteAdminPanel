@@ -48,14 +48,6 @@ export async function createSession(userId: number): Promise<string> {
 
   const cookieStore = cookies()
 
-  if (isDemoMode()) {
-    cookieStore.set("demo_session", sessionToken, {
-      expires: expiresAt,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-    })
-  } else {
     if (!isDatabaseConfigured()) {
       throw new Error("Database not configured")
     }
@@ -72,7 +64,6 @@ export async function createSession(userId: number): Promise<string> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     })
-  }
 
   // Log login activity
   await logUserActivity(userId, "login", { message: "User logged in" })
@@ -83,16 +74,6 @@ export async function createSession(userId: number): Promise<string> {
 export async function getSession(): Promise<User | null> {
   try {
     const cookieStore = cookies()
-    const demoSession = cookieStore.get("demo_session")?.value
-
-    if (demoSession) {
-      return DEMO_USER
-    }
-
-    if (isDemoMode() || !isDatabaseConfigured()) {
-      return null
-    }
-
     const sessionToken = cookieStore.get("session")?.value
 
     if (!sessionToken) {
@@ -140,12 +121,6 @@ export async function logout() {
   try {
     const cookieStore = cookies()
     const user = await getSession() // Get user before clearing session
-
-    if (isDemoMode()) {
-      cookieStore.delete("demo_session")
-      redirect("/login")
-      return
-    }
 
     if (!isDatabaseConfigured()) {
       cookieStore.delete("session")
