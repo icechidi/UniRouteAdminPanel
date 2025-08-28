@@ -5,13 +5,20 @@ import { Plus, Edit, Trash2, Mail, Phone } from 'lucide-react'
 import Link from "next/link"
 import { getUsers } from "@/lib/db"
 
-
 import DashboardLayout from "../dashboard-layout"
-
 import { Button } from "@/components/ui/button"
 
 export default async function UsersPage() {
   const users = await getUsers()
+
+  // Function to handle deleting a user
+  // const handleDelete = async (userId: string) => {
+  //   if (confirm("Are you sure you want to delete this user?")) {
+  //     await deleteUser(userId)
+  //     // Ideally, refresh the page or use state to remove deleted user from the table
+  //     location.reload()
+  //   }
+  // }
 
   return (
     <DashboardLayout>
@@ -70,10 +77,16 @@ export default async function UsersPage() {
                     <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
+                        <Link href={`/users/edit/${user.user_id}`}>
+                          <Button variant="outline" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
