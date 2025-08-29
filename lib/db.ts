@@ -7,10 +7,6 @@ let pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
-/**
- * Demo data (base: your previous file).
- * Kept as-is and extended only where necessary to support new getters.
- */
 const DEMO_DATA = {
   roles: [
     { role_id: 1, name: "admin" },
@@ -523,6 +519,21 @@ export async function getUsers() {
   }
 }
 
+export async function getUserById(id: number) {
+  try {
+    if (isDemoMode()) {
+      return DEMO_DATA.users.find((user) => user.user_id === id) || null
+    }
+    if (!isDatabaseConfigured()) return null
+    const sql = getSql()
+    const result = await sql.query("SELECT * FROM users WHERE user_id = $1", [id])
+    return result.rows[0] || null
+  } catch (error) {
+    console.error("Error fetching user by ID:", error)
+    return null
+  }
+}
+
 export async function getBuses() {
   try {
     if (isDemoMode()) return DEMO_DATA.buses
@@ -745,6 +756,25 @@ export async function getScheduleNotifications() {
   }
 }
 
+// Removed duplicate getMessages function to fix redeclaration error.
+
+export async function getMessageById(id: number) {
+  try {
+    if (isDemoMode()) {
+      return DEMO_DATA.messages.find((message) => message.message_id === id) || null
+    }
+    if (!isDatabaseConfigured()) return null
+    const sql = getSql()
+    const result = await sql.query("SELECT * FROM messages WHERE message_id = $1", [id])
+    return result.rows[0] || null
+  } catch (error) {
+    console.error("Error fetching message by ID:", error)
+    return null
+  }
+}
+
+
+
 export async function getSemesterSchedules() {
   try {
     if (isDemoMode()) return DEMO_DATA.semester_schedules
@@ -754,6 +784,23 @@ export async function getSemesterSchedules() {
   } catch (error) {
     console.error("Error fetching semester schedules:", error)
     return DEMO_DATA.semester_schedules
+  }
+}
+
+
+
+export async function getSemesterScheduleById(id: number) {
+  try {
+    if (isDemoMode()) {
+      return DEMO_DATA.semester_schedules.find((schedule) => schedule.sem_schedule_id === id) || null
+    }
+    if (!isDatabaseConfigured()) return null
+    const sql = getSql()
+    const result = await sql.query("SELECT * FROM semester_schedules WHERE sem_schedule_id = $1", [id])
+    return result.rows[0] || null
+  } catch (error) {
+    console.error("Error fetching semester schedule by ID:", error)
+    return null
   }
 }
 
@@ -899,5 +946,117 @@ export async function getDashboardStats() {
       messages: 4,
       feedback: 1,
     }
+  }
+}
+
+
+//Lastly updated
+
+export async function getStudentSchedules(userId?: number) {
+  try {
+    if (isDemoMode()) {
+      // Return demo student schedules data
+      return [
+        {
+          schedule_id: 1,
+          route_id: 1,
+          bus_id: 1,
+          sem_schedule_id: 1,
+          type_of_schedule: "weekly",
+          start_date: null,
+          end_date: null,
+          days_of_week: '["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          route_name: "Campus to Downtown",
+          bus_number: "UNI-001",
+          academic_year: "2023-2024",
+          semester: "fall",
+          student_name: "Alice Johnson",
+          student_id: "STU001",
+          student_email: "alice.j@student.edu",
+          phone: "+1234567801",
+          pickup_stop: "University Campus",
+          drop_stop: "Downtown Station",
+          status: "confirmed",
+        },
+        {
+          schedule_id: 2,
+          route_id: 2,
+          bus_id: 2,
+          sem_schedule_id: 1,
+          type_of_schedule: "daily",
+          start_date: new Date().toISOString().split("T")[0],
+          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          days_of_week: null,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          route_name: "Campus to Airport",
+          bus_number: "UNI-002",
+          academic_year: "2023-2024",
+          semester: "fall",
+          student_name: "Bob Smith",
+          student_id: "STU002",
+          student_email: "bob.s@student.edu",
+          phone: "+1234567802",
+          pickup_stop: "University Campus",
+          drop_stop: "City Airport Terminal",
+          status: "pending",
+        },
+      ]
+    }
+    if (!isDatabaseConfigured()) return []
+    const sql = getSql()
+    const currentDate = new Date().toISOString().split("T")[0]
+    const result = await sql.query(
+      `SELECT s.*, r.route_name, b.bus_number, ss.academic_year, ss.semester, ss.start_date, ss.end_date, ss.holidays
+       FROM schedules s
+       JOIN routes r ON s.route_id = r.route_id
+       JOIN buses b ON s.bus_id = b.bus_id
+       LEFT JOIN semester_schedules ss ON s.sem_schedule_id = ss.sem_schedule_id
+       WHERE s.is_active = true
+       AND (ss.start_date IS NULL OR ss.start_date <= $1)
+       AND (ss.end_date IS NULL OR ss.end_date >= $1)
+       ORDER BY r.route_name`,
+      [currentDate]
+    )
+    return result.rows
+  } catch (error) {
+    console.error("Error fetching student schedules:", error)
+    return []
+  }
+}
+
+export async function getCurrentSemester() {
+  try {
+    if (isDemoMode()) {
+      // Return demo current semester data
+      return {
+        sem_schedule_id: 1,
+        academic_year: "2023-2024",
+        semester: "fall",
+        start_date: "2023-09-01",
+        end_date: "2023-12-15",
+        holidays: '[{"date": "2023-11-23", "name": "Thanksgiving"}, {"date": "2023-12-25", "name": "Christmas"}]',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    }
+    if (!isDatabaseConfigured()) return null
+    const sql = getSql()
+    const currentDate = new Date().toISOString().split("T")[0]
+    const result = await sql.query(
+      `SELECT * FROM semester_schedules
+       WHERE start_date <= $1 AND end_date >= $1
+       ORDER BY start_date DESC
+       LIMIT 1`,
+      [currentDate]
+    )
+    return result.rows[0] || null
+  } catch (error) {
+    console.error("Error fetching current semester:", error)
+    return null
   }
 }
