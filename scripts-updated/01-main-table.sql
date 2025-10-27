@@ -178,7 +178,7 @@ VALUES (
 )
 ON CONFLICT (username) DO NOTHING;
 
--- 3. Buses
+-- 3. Buses update
 INSERT INTO buses (bus_number, license_plate, capacity, model, year)
 VALUES
 ('Bus-101', 'ABC-1234', 50, 'Volvo B9R', 2018),
