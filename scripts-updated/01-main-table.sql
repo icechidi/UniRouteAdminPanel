@@ -151,7 +151,7 @@ COMMIT;
 
 
 ----------------------------------MAIN--------------------------------------------------
---Similar script same as above
+--Similar script same as above but added view for next upcoming route schedule
 BEGIN;
 
 -- 1. Roles
@@ -185,13 +185,13 @@ VALUES
 ('Bus-102', 'XYZ-5678', 45, 'Mercedes Tourismo', 2019)
 ON CONFLICT (bus_number) DO NOTHING;
 
--- 4. Routes
+-- 4. Routes details
 INSERT INTO routes (route_name) VALUES
 ('North Campus Loop'),
 ('City Center Express')
 ON CONFLICT (route_name) DO NOTHING;
 
--- 5. Route Stops
+-- 5. Route Stops 
 INSERT INTO route_stops (route_id, stop_name, longitude, latitude, stop_order, arrival_time, estimated_duration)
 VALUES
 ((SELECT route_id FROM routes WHERE route_name = 'North Campus Loop'), 'North Gate', -122.406417, 37.785834, 1, '08:00:00', 0),
